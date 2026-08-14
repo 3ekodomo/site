@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>श्लोक Revision Pro Ultra</title>
+    <!-- Marked.js for full Markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f0f4f8;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --primary-btn: #3498db;
+            --primary-hover: #2980b9;
+            --success-btn: #2ecc71;
+            --success-hover: #27ae60;
+            --mask-bg: #bdc3c7;
+            --mask-hover: #95a5a6;
+            --note-bg: #f9f9f9;
+            --border-color: transparent;
+            --item-bg: #eef2f5;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --primary-btn: #2980b9;
+            --primary-hover: #3498db;
+            --success-btn: #27ae60;
+            --success-hover: #2ecc71;
+            --mask-bg: #444444;
+            --mask-hover: #666666;
+            --note-bg: #2a2a2a;
+            --border-color: #333333;
+            --item-bg: #2a2a2a;
+        }
+
+        [data-theme="black"] {
+            --bg-color: #000000;
+            --card-bg: #000000;
+            --text-color: #ffffff;
+            --primary-btn: #1a5276;
+            --primary-hover: #2980b9;
+            --success-btn: #1d8348;
+            --success-hover: #27ae60;
+            --mask-bg: #222222;
+            --mask-hover: #444444;
+            --note-bg: #0a0a0a;
+            --border-color: #333333;
+            --item-bg: #111111;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .header-controls {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .header-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background 0.3s;
+            flex-grow: 0;
+            margin: 0;
+        }
+        
+        .header-btn:hover { background-color: #c0392b; }
+
+        .detect-btn {
+            background-color: #9b59b6;
+            padding: 6px 10px;
+            font-size: 0.85em;
+        }
+
+        .detect-btn:hover { background-color: #8e44ad; }
+
+        select {
+            padding: 8px;
+            border-radius: 6px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            outline: none;
+            cursor: pointer;
+        }
+
+        .setup-container, .card-container {
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            max-width: 600px;
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid var(--border-color);
+            transition: background-color 0.3s;
+        }
+
+        .card-container { display: none; }
+
+        input[type="url"], textarea {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            box-sizing: border-box;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: inherit;
+        }
+
+        textarea {
+            resize: vertical;
+        }
+
+        .divider {
+            text-align: center;
+            margin: 20px 0;
+            font-weight: bold;
+            color: var(--mask-hover);
+            position: relative;
+        }
+
+        .divider::before, .divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background-color: var(--border-color);
+        }
+
+        .divider::before { left: 0; }
+        .divider::after { right: 0; }
+
+        button {
+            background-color: var(--primary-btn);
+            color: white;
+            border: none;
+            padding: 12px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            margin: 5px 0;
+            transition: background 0.3s;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        button:hover { background-color: var(--primary-hover); }
+        .btn-success { background-color: var(--success-btn); }
+        .btn-success:hover { background-color: var(--success-hover); }
+        .btn-resume { background-color: #f39c12; margin-bottom: 20px; font-weight: bold; }
+        .btn-resume:hover { background-color: #d68910; }
+        
+        h1, h2 { text-align: center; margin-top: 0; }
+        
+        .progress {
+            text-align: center;
+            font-size: 0.9em;
+            opacity: 0.7;
+            margin-bottom: 15px;
+        }
+
+        .shloka-text {
+            font-size: 1.6em;
+            color: #e74c3c;
+            margin: 25px 0;
+            font-weight: 600;
+            line-height: 1.8;
+            text-align: center;
+        }
+        
+        [data-theme="dark"] .shloka-text, [data-theme="black"] .shloka-text {
+            color: #ff6b6b;
+        }
+
+        .shloka-line { margin-bottom: 10px; }
+        
+        .masked-word {
+            background-color: var(--mask-bg);
+            color: var(--mask-bg);
+            border-radius: 4px;
+            cursor: pointer;
+            padding: 0 5px;
+            margin: 0 2px;
+            user-select: none;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .masked-word:hover {
+            background-color: var(--mask-hover);
+            color: var(--mask-hover);
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            margin-top: 20px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 15px;
+            gap: 5px;
+        }
+        
+        .controls button {
+            flex: 1 1 auto;
+            margin: 2px;
+        }
+
+        .deck-controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            margin-bottom: 5px;
+        }
+
+        /* History Collection Styles */
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--item-bg);
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            transition: transform 0.2s;
+        }
+        
+        .history-item:hover { transform: scale(1.01); }
+        .history-info { flex: 1; cursor: pointer; }
+        .history-title { font-weight: bold; margin-bottom: 4px; }
+        .history-meta { font-size: 0.85em; opacity: 0.7; }
+        .history-del-btn { 
+            width: auto; margin: 0; padding: 8px 12px; 
+            background-color: #e74c3c; font-size: 1.1em; 
+        }
+        .history-del-btn:hover { background-color: #c0392b; }
+
+        .other-content {
+            padding: 15px;
+            background: var(--note-bg);
+            border-radius: 6px;
+            font-size: 1.1em;
+            line-height: 1.6;
+            overflow-wrap: break-word;
+            margin-top: 15px;
+        }
+        
+        .other-content img { 
+            max-width: 100%; 
+            height: auto;
+            border-radius: 8px; 
+            display: block;
+            margin: 15px auto;
+            cursor: zoom-in;
+            transition: opacity 0.3s;
+        }
+        
+        .other-content img:hover {
+            opacity: 0.85;
+        }
+
+        .other-content code { background: rgba(127,127,127,0.2); padding: 2px 5px; border-radius: 4px; }
+        .other-content blockquote { border-left: 4px solid var(--primary-btn); margin-left: 0; padding-left: 15px; }
+
+        #error-msg { color: #e74c3c; text-align: center; margin-top: 10px; font-weight: bold; }
+
+        /* Image Modal CSS */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            padding-top: 50px;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.9);
+        }
+
+        .modal-content {
+            margin: auto;
+            display: block;
+            max-width: 90%;
+            max-height: 80vh;
+            border-radius: 8px;
+            object-fit: contain;
+            animation-name: zoom;
+            animation-duration: 0.3s;
+        }
+
+        @keyframes zoom {
+            from {transform:scale(0)}
+            to {transform:scale(1)}
+        }
+
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-controls">
+        <button class="header-btn" onclick="clearCacheAndRefresh()">Clear Cache & Reload</button>
+        <select id="theme-selector" onchange="changeTheme()">
+            <option value="light">Light Mode</option>
+            <option value="dark">Dark Mode</option>
+            <option value="black">Black (AMOLED)</option>
+        </select>
+    </div>
+
+    <div class="setup-container" id="setup">
+        
+        <button id="resume-btn" class="btn-resume" style="display: none;" onclick="resumeLastSession()">🔄 Resume Last Session</button>
+
+        <h2>Load Flashcards Data</h2>
+        
+        <label><strong>Option 1:</strong> Load from URL</label>
+        <input type="url" id="md-url" placeholder="Enter Raw .md File URL..." value="">
+        <button class="btn-success" onclick="loadMarkdownUrl()">Load from URL</button>
+        
+        <div class="divider">OR</div>
+        
+        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+            <label><strong>Option 2:</strong> Paste Markdown Text</label>
+            <button class="header-btn detect-btn" onclick="autoFormatShlokas()">✨ Auto-Detect Shlokas</button>
+        </div>
+        <textarea id="md-text" rows="8" placeholder="Paste your raw text here. Click 'Auto-Detect Shlokas' to automatically format Devanagari lines."></textarea>
+        <button class="btn-success" onclick="loadMarkdownText()">Load from Text</button>
+
+        <div class="divider">OR</div>
+
+        <label><strong>Option 3:</strong> Saved Collections & History</label>
+        <div id="history-list">
+            <!-- History items will be injected here -->
+        </div>
+
+        <div id="error-msg"></div>
+    </div>
+
+    <div class="card-container" id="flashcard">
+        <div class="progress" id="progress-text"></div>
+        <h2 id="card-title">Card Title</h2>
+        
+        <div id="shloka-container" class="shloka-text"></div>
+        
+        <div class="controls">
+            <button onclick="unmaskWord()">Unmask Word</button>
+            <button onclick="unmaskLine()">Unmask Line</button>
+            <button onclick="unmaskAll()">Unmask All</button>
+            <button onclick="remaskAll()" style="background-color: #95a5a6;">Remask</button>
+        </div>
+
+        <div class="deck-controls">
+            <button onclick="shuffleDeck()" style="background-color: #e67e22; flex: 1;">Shuffle</button>
+            <button onclick="saveCurrentDeck()" id="save-deck-btn" style="background-color: #34495e; flex: 1;">💾 Save</button>
+            <button class="btn-success" onclick="nextCard()" style="flex: 1.5;">Next Card</button>
+        </div>
+        <div class="deck-controls">
+            <button onclick="goToSetup()" style="background-color: #7f8c8d; flex: 1;">🏠 Back to Home</button>
+        </div>
+
+        <div id="other-content" class="other-content"></div>
+    </div>
+
+    <!-- Image Zoom Modal -->
+    <div id="image-modal" class="modal" onclick="closeModal()">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <img class="modal-content" id="zoomed-image">
+    </div>
+
+    <script>
+        let flashcards = [];
+        let currentIndex = 0;
+        let currentRawMarkdown = "";
+        let activeDeckId = null;
+
+        window.onload = () => {
+            const savedUrl = localStorage.getItem('shloka_md_url');
+            if (savedUrl) document.getElementById('md-url').value = savedUrl;
+
+            const savedTheme = localStorage.getItem('shloka_theme') || 'light';
+            document.getElementById('theme-selector').value = savedTheme;
+            document.body.setAttribute('data-theme', savedTheme);
+
+            renderHistory();
+
+            // Check if there is an active session to resume
+            const lastMarkdown = localStorage.getItem('shloka_last_markdown');
+            if (lastMarkdown) {
+                document.getElementById('resume-btn').style.display = 'block';
+            }
+        };
+
+        function changeTheme() {
+            const theme = document.getElementById('theme-selector').value;
+            document.body.setAttribute('data-theme', theme);
+            localStorage.setItem('shloka_theme', theme);
+        }
+
+        function clearCacheAndRefresh() {
+            if(confirm("This will clear your recent URLs and theme preferences. Collections will remain safe. Proceed?")) {
+                localStorage.removeItem('shloka_md_url');
+                localStorage.removeItem('shloka_last_markdown');
+                localStorage.removeItem('shloka_last_deck_id');
+                window.location.reload(true);
+            }
+        }
+
+        function autoFormatShlokas() {
+            const textarea = document.getElementById('md-text');
+            let lines = textarea.value.split('\n');
+            const devanagariRegex = /[\u0900-\u097F]/; 
+            
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+                if (devanagariRegex.test(line) && !line.startsWith('>') && !line.startsWith('#')) {
+                    lines[i] = '> ' + line;
+                }
+            }
+            textarea.value = lines.join('\n');
+        }
+
+        async function loadMarkdownUrl() {
+            const url = document.getElementById('md-url').value;
+            const errorDiv = document.getElementById('error-msg');
+            errorDiv.innerText = "Loading...";
+            
+            try {
+                const cacheBusterUrl = url + (url.includes('?') ? '&' : '?') + 't=' + new Date().getTime();
+                const response = await fetch(cacheBusterUrl, { cache: 'no-store' });
+                
+                if (!response.ok) throw new Error("Network response was not ok");
+                const text = await response.text();
+                
+                localStorage.setItem('shloka_md_url', url);
+                parseAndStart(text, errorDiv, 0, null);
+            } catch (error) {
+                errorDiv.innerText = "Failed to load URL. Ensure it is a Raw text URL.";
+            }
+        }
+
+        function loadMarkdownText() {
+            const text = document.getElementById('md-text').value;
+            const errorDiv = document.getElementById('error-msg');
+            
+            if (!text.trim()) {
+                errorDiv.innerText = "Please paste some Markdown text first.";
+                return;
+            }
+            parseAndStart(text, errorDiv, 0, null);
+        }
+
+        function resumeLastSession() {
+            const text = localStorage.getItem('shloka_last_markdown');
+            const deckId = localStorage.getItem('shloka_last_deck_id');
+            const savedIndex = parseInt(localStorage.getItem('shloka_last_index')) || 0;
+            if (text) {
+                parseAndStart(text, document.getElementById('error-msg'), savedIndex, deckId);
+            }
+        }
+
+        function parseAndStart(text, errorDiv, startIndex = 0, deckId = null) {
+            parseMarkdown(text);
+            
+            if (flashcards.length > 0) {
+                errorDiv.innerText = "";
+                currentRawMarkdown = text;
+                activeDeckId = deckId;
+                
+                // Ensure starting index is valid
+                currentIndex = (startIndex >= 0 && startIndex < flashcards.length) ? startIndex : 0;
+                
+                // Save global session state
+                localStorage.setItem('shloka_last_markdown', text);
+                localStorage.setItem('shloka_last_deck_id', deckId || "");
+                localStorage.setItem('shloka_last_index', currentIndex);
+
+                // Update UI Save Button text if it's already a saved deck
+                const saveBtn = document.getElementById('save-deck-btn');
+                if (deckId) {
+                    saveBtn.innerHTML = "💾 Update Saved";
+                } else {
+                    saveBtn.innerHTML = "💾 Save Deck";
+                }
+
+                document.getElementById('setup').style.display = 'none';
+                document.getElementById('flashcard').style.display = 'block';
+                renderCard();
+            } else {
+                errorDiv.innerText = "No valid cards found. Ensure proper markdown formatting (starting with #).";
+            }
+        }
+
+        function parseMarkdown(md) {
+            flashcards = [];
+            const blocks = md.split(/(?:^|\n)# /);
+            
+            blocks.forEach((block) => {
+                if (!block.trim()) return;
+                
+                const lines = block.split('\n');
+                let title = lines[0].trim();
+                let shlokaLines = [];
+                let otherText = [];
+                
+                for (let i = 1; i < lines.length; i++) {
+                    let line = lines[i];
+                    if (line.trim().startsWith('>')) {
+                        shlokaLines.push(line.replace('>', '').trim());
+                    } else {
+                        otherText.push(line);
+                    }
+                }
+                
+                flashcards.push({
+                    title: title,
+                    shloka: shlokaLines,
+                    other: otherText.join('\n').trim()
+                });
+            });
+        }
+
+        function renderCard() {
+            const card = flashcards[currentIndex];
+            document.getElementById('progress-text').innerText = `Card ${currentIndex + 1} of ${flashcards.length}`;
+            document.getElementById('card-title').innerText = card.title;
+            
+            const container = document.getElementById('shloka-container');
+            container.innerHTML = '';
+            
+            card.shloka.forEach(lineText => {
+                if (lineText === '') return;
+                const lineDiv = document.createElement('div');
+                lineDiv.className = 'shloka-line';
+                
+                const words = lineText.split(' ');
+                words.forEach(word => {
+                    if (word.trim()) {
+                        const span = document.createElement('span');
+                        span.className = 'masked-word shloka-word';
+                        span.innerText = word;
+                        span.onclick = function() { this.classList.remove('masked-word'); };
+                        lineDiv.appendChild(span);
+                        lineDiv.appendChild(document.createTextNode(' '));
+                    }
+                });
+                container.appendChild(lineDiv);
+            });
+
+            const notesContainer = document.getElementById('other-content');
+            if (card.other) {
+                notesContainer.style.display = 'block';
+                notesContainer.innerHTML = marked.parse(card.other);
+                attachImageZoom();
+            } else {
+                notesContainer.style.display = 'none';
+            }
+        }
+
+        function saveCurrentIndex() {
+            // Update global fallback state
+            localStorage.setItem('shloka_last_index', currentIndex);
+            
+            // If viewing a saved collection, update its specific index
+            if (activeDeckId) {
+                let history = JSON.parse(localStorage.getItem('shloka_history') || '[]');
+                let deckIndex = history.findIndex(d => d.id === activeDeckId);
+                if (deckIndex > -1) {
+                    history[deckIndex].lastIndex = currentIndex;
+                    localStorage.setItem('shloka_history', JSON.stringify(history));
+                }
+            }
+        }
+
+        function nextCard() {
+            currentIndex++;
+            if (currentIndex >= flashcards.length) currentIndex = 0;
+            saveCurrentIndex();
+            renderCard();
+        }
+
+        function shuffleDeck() {
+            for (let i = flashcards.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [flashcards[i], flashcards[j]] = [flashcards[j], flashcards[i]];
+            }
+            currentIndex = 0;
+            saveCurrentIndex();
+            renderCard();
+        }
+
+        // --- History / Collections Logic ---
+
+        function saveCurrentDeck() {
+            let history = JSON.parse(localStorage.getItem('shloka_history') || '[]');
+            
+            // If already viewing a saved deck, just update its content/index
+            if (activeDeckId) {
+                let deckIndex = history.findIndex(d => d.id === activeDeckId);
+                if (deckIndex > -1) {
+                    history[deckIndex].content = currentRawMarkdown;
+                    history[deckIndex].lastIndex = currentIndex;
+                    history[deckIndex].date = new Date().toLocaleDateString();
+                    localStorage.setItem('shloka_history', JSON.stringify(history));
+                    alert("Collection updated successfully!");
+                    return;
+                }
+            }
+
+            // Create new collection
+            let defaultName = document.getElementById('card-title').innerText.substring(0, 15) + "... Deck";
+            let name = prompt("Enter a name to save this collection:", defaultName);
+            if (!name) return;
+            
+            let id = 'deck_' + Date.now();
+            
+            history.push({
+                id: id,
+                name: name,
+                content: currentRawMarkdown,
+                lastIndex: currentIndex,
+                date: new Date().toLocaleDateString()
+            });
+            
+            localStorage.setItem('shloka_history', JSON.stringify(history));
+            activeDeckId = id;
+            localStorage.setItem('shloka_last_deck_id', id);
+            
+            document.getElementById('save-deck-btn').innerHTML = "💾 Update Saved";
+            alert("Deck saved to your Collections!");
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const listDiv = document.getElementById('history-list');
+            let history = JSON.parse(localStorage.getItem('shloka_history') || '[]');
+            
+            if (history.length === 0) {
+                listDiv.innerHTML = "<p style='opacity:0.6; font-size:0.9em; text-align:center;'>No saved collections yet. Load a deck and hit 'Save'!</p>";
+                return;
+            }
+            
+            listDiv.innerHTML = '';
+            // Show newest first
+            history.slice().reverse().forEach(deck => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'history-item';
+                
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'history-info';
+                infoDiv.innerHTML = `
+                    <div class="history-title">📚 ${deck.name}</div>
+                    <div class="history-meta">Saved: ${deck.date} | Left at card: ${(deck.lastIndex || 0) + 1}</div>
+                `;
+                infoDiv.onclick = () => loadFromHistory(deck.id);
+                
+                const delBtn = document.createElement('button');
+                delBtn.innerText = '🗑️';
+                delBtn.className = 'history-del-btn';
+                delBtn.onclick = (e) => { e.stopPropagation(); deleteHistory(deck.id); };
+                
+                itemDiv.appendChild(infoDiv);
+                itemDiv.appendChild(delBtn);
+                listDiv.appendChild(itemDiv);
+            });
+        }
+
+        function loadFromHistory(id) {
+            let history = JSON.parse(localStorage.getItem('shloka_history') || '[]');
+            let deck = history.find(d => d.id === id);
+            if (deck) {
+                parseAndStart(deck.content, document.getElementById('error-msg'), deck.lastIndex || 0, id);
+            }
+        }
+
+        function deleteHistory(id) {
+            if (!confirm("Are you sure you want to delete this collection?")) return;
+            let history = JSON.parse(localStorage.getItem('shloka_history') || '[]');
+            history = history.filter(d => d.id !== id);
+            localStorage.setItem('shloka_history', JSON.stringify(history));
+            
+            if (activeDeckId === id) {
+                activeDeckId = null;
+                localStorage.setItem('shloka_last_deck_id', "");
+            }
+            renderHistory();
+        }
+
+        function goToSetup() {
+            document.getElementById('flashcard').style.display = 'none';
+            document.getElementById('setup').style.display = 'block';
+            document.getElementById('resume-btn').style.display = 'block';
+            renderHistory();
+        }
+
+        // --- Utility and Modal functions ---
+        
+        function attachImageZoom() {
+            const notesContainer = document.getElementById('other-content');
+            const images = notesContainer.getElementsByTagName('img');
+            
+            for (let img of images) {
+                img.onclick = function(event) {
+                    const modal = document.getElementById('image-modal');
+                    const modalImg = document.getElementById('zoomed-image');
+                    modal.style.display = "flex";
+                    modalImg.src = this.src;
+                    event.stopPropagation();
+                }
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('image-modal').style.display = "none";
+        }
+
+        function unmaskWord() {
+            const firstHidden = document.querySelector('.masked-word');
+            if (firstHidden) firstHidden.classList.remove('masked-word');
+        }
+
+        function unmaskLine() {
+            const lines = document.querySelectorAll('.shloka-line');
+            for (let line of lines) {
+                const hiddenWords = line.querySelectorAll('.masked-word');
+                if (hiddenWords.length > 0) {
+                    hiddenWords.forEach(word => word.classList.remove('masked-word'));
+                    break; 
+                }
+            }
+        }
+
+        function unmaskAll() {
+            document.querySelectorAll('.masked-word').forEach(word => word.classList.remove('masked-word'));
+        }
+
+        function remaskAll() {
+            document.querySelectorAll('.shloka-word').forEach(word => word.classList.add('masked-word'));
+        }
+    </script>
+</body>
+</html>
