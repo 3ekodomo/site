@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Notes Explorer</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #121212; --text-color: #e0e0e0; --accent: #ff5252;
+            --panel-bg: #1e1e1e; --border-color: #333; --btn-text: #ffffff;
+        }
+        body.theme-light { --bg-color: #f7f7f7; --text-color: #24292e; --panel-bg: #ffffff; --border-color: #e1e4e8; }
+        body.theme-black { --bg-color: #000000; --text-color: #cccccc; --panel-bg: #0a0a0a; --border-color: #222222; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color); color: var(--text-color);
+            margin: 0; padding: 0; display: flex; flex-direction: column;
+            height: 100vh; transition: background-color 0.3s, color 0.3s;
+        }
+
+        .navbar { background-color: var(--panel-bg); padding: 15px 20px; display: flex; align-items: center; border-bottom: 1px solid var(--border-color); }
+        .navbar button { background: none; border: none; color: var(--text-color); font-size: 18px; cursor: pointer; margin-right: 15px; }
+        .navbar h2 { margin: 0; font-size: 18px; flex-grow: 1; font-weight: normal; }
+
+        .view { display: none; padding: 20px; flex-grow: 1; overflow-y: auto; }
+        .active-view { display: block; }
+        
+        .settings-form { display: flex; flex-direction: column; gap: 15px; max-width: 400px; margin: auto; }
+        .settings-form input, .settings-form select { background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); padding: 10px; border-radius: 4px; }
+        .settings-form label { display: flex; align-items: center; gap: 10px; }
+        
+        .btn-primary { background: var(--accent); color: var(--btn-text); border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold;}
+        .btn-success { background: #2ea44f; color: #ffffff; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold;}
+        
+        .search-bar { width: 100%; padding: 10px; margin-bottom: 15px; box-sizing: border-box; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px;}
+        .list-item { padding: 15px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .list-item:hover { background-color: var(--panel-bg); }
+        .item-main { display: flex; align-items: center; gap: 15px; cursor: pointer; flex-grow: 1; overflow: hidden; }
+        
+        .menu-container { position: relative; display: inline-block; }
+        .three-dots { background: none; border: none; color: inherit; cursor: pointer; font-size: 20px; padding: 0 5px; opacity: 0.7;}
+        .three-dots:hover { opacity: 1; }
+        .menu-options { 
+            display: none; position: absolute; right: 0; top: 100%; 
+            background: var(--panel-bg); border: 1px solid var(--border-color); 
+            z-index: 10; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); min-width: 120px;
+        }
+        .menu-options button { display: block; width: 100%; text-align: left; padding: 10px; background: none; border: none; color: var(--text-color); cursor: pointer; font-size: 14px;}
+        .menu-options button:hover { background: var(--bg-color); }
+        .menu-container:focus-within .menu-options, .menu-container:hover .menu-options { display: block; }
+        
+        .folder-icon::before { content: "📁"; }
+        .file-icon::before { content: "📄"; }
+        
+        .toolbar { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+        #viewer-container, #editor-container {
+            width: 100%; min-height: 70vh; background-color: var(--panel-bg);
+            border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; box-sizing: border-box; overflow-x: hidden;
+        }
+        #editor-container { display: none; }
+        textarea {
+            width: 100%; height: 65vh; background: transparent; color: var(--text-color);
+            border: none; resize: none; font-family: monospace; font-size: 16px; outline: none;
+        }
+        
+        /* Media Player Styling */
+        video, audio, img { max-width: 100%; border-radius: 4px; display: block; margin: 10px 0; }
+    </style>
+</head>
+<body>
+
+    <div class="navbar">
+        <button onclick="goBack()" id="back-btn" style="display: none;">←</button>
+        <h2 id="nav-title">GitHub Notes</h2>
+        <button onclick="showView('settings')">⚙️</button>
+    </div>
+
+    <!-- Settings View -->
+    <div id="view-settings" class="view">
+        <div class="settings-form">
+            <h3>Configuration</h3>
+            <input type="password" id="gh-token" placeholder="GitHub PAT Token">
+            <input type="text" id="gh-owner" placeholder="Repo Owner">
+            <input type="text" id="gh-repo" placeholder="Repo Name">
+            
+            <label>
+                Theme:
+                <select id="theme-select">
+                    <option value="theme-dark">Dark Mode</option>
+                    <option value="theme-light">Light Mode</option>
+                    <option value="theme-black">AMOLED Black</option>
+                </select>
+            </label>
+
+            <label><input type="checkbox" id="hide-attachments"> Hide "Attachment-..." items</label>
+            <label><input type="checkbox" id="only-md"> Only show .md files</label>
+            <label><input type="checkbox" id="use-headings"> Show first # heading as file name</label>
+
+            <button class="btn-primary" onclick="saveSettings()">Save & Browse</button>
+        </div>
+    </div>
+
+    <!-- Browser View -->
+    <div id="view-browser" class="view">
+        <input type="text" id="search-input" class="search-bar" placeholder="Filter files..." onkeyup="filterFiles()">
+        <div id="file-list"></div>
+    </div>
+
+    <!-- Note View -->
+    <div id="view-note" class="view">
+        <div class="toolbar">
+            <button class="btn-primary" id="toggle-btn" onclick="toggleMode()">Edit Mode</button>
+            <button class="btn-success" onclick="saveFile()">Save to GitHub</button>
+        </div>
+        <div id="viewer-container"></div>
+        <div id="editor-container">
+            <textarea id="markdown-editor"></textarea>
+        </div>
+    </div>
+
+    <script>
+        let currentPath = [];
+        let currentFileSha = null;
+        let currentFilePath = "";
+        let isEditMode = false;
+        let directoryData = [];
+
+        // Markdown Configuration
+        const renderer = new marked.Renderer();
+        renderer.link = function(token) {
+            let href = typeof token === 'object' ? token.href : arguments[0];
+            let title = (typeof token === 'object' ? token.title : arguments[1]) || '';
+            let text = (typeof token === 'object' ? token.text : arguments[2]) || '';
+            return `<a href="${href || ''}" target="_blank" rel="noopener noreferrer" title="${title}">${text}</a>`;
+        };
+        
+        // Pass standard src for images, DOM processing will intercept for API authorization
+        renderer.image = function(token) {
+            let href = typeof token === 'object' ? token.href : arguments[0];
+            let title = (typeof token === 'object' ? token.title : arguments[1]) || '';
+            let text = (typeof token === 'object' ? token.text : arguments[2]) || '';
+            return `<img src="${href || ''}" alt="${text}" title="${title}" />`;
+        };
+
+        marked.setOptions({ renderer: renderer, gfm: true, breaks: true });
+
+        // Expanded DOMPurify Configuration to permit HTML tags & media players
+        const sanitizeOptions = {
+            ADD_TAGS: ['video', 'audio', 'source', 'track', 'iframe', 'div', 'span', 'details', 'summary', 'kbd', 'br', 'hr', 'table', 'tr', 'td', 'th', 'thead', 'tbody'],
+            ADD_ATTR: ['target', 'style', 'src', 'controls', 'autoplay', 'loop', 'muted', 'allow', 'allowfullscreen', 'frameborder', 'data-path', 'class', 'id', 'type', 'width', 'height']
+        };
+
+        const decodeBase64UTF8 = (base64) => {
+            try { return decodeURIComponent(escape(atob(base64))); } 
+            catch (e) { return atob(base64); }
+        };
+        const encodeBase64UTF8 = (str) => btoa(unescape(encodeURIComponent(str)));
+
+        window.onload = () => {
+            document.getElementById('theme-select').value = localStorage.getItem('theme') || 'theme-dark';
+            document.getElementById('hide-attachments').checked = localStorage.getItem('hideAttachments') === 'true';
+            document.getElementById('only-md').checked = localStorage.getItem('onlyMd') === 'true';
+            document.getElementById('use-headings').checked = localStorage.getItem('useHeadings') === 'true';
+            applyTheme();
+
+            const routeMatch = window.location.pathname.match(/\/site\/mdreader\/([^/]+)\/([^/]+)\/(.+)/);
+            if (routeMatch) {
+                localStorage.setItem('ghOwner', routeMatch[1]);
+                localStorage.setItem('ghRepo', routeMatch[2]);
+                openFile(routeMatch[3]);
+                return;
+            }
+
+            const token = localStorage.getItem('ghToken');
+            if (token) {
+                document.getElementById('gh-token').value = token;
+                document.getElementById('gh-owner').value = localStorage.getItem('ghOwner') || "";
+                document.getElementById('gh-repo').value = localStorage.getItem('ghRepo') || "";
+                loadDirectory();
+            } else {
+                showView('settings');
+            }
+        };
+
+        function applyTheme() { document.body.className = document.getElementById('theme-select').value; }
+
+        function showView(viewName) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active-view'));
+            document.getElementById(`view-${viewName}`).classList.add('active-view');
+            const backBtn = document.getElementById('back-btn');
+            const title = document.getElementById('nav-title');
+
+            if (viewName === 'settings') {
+                backBtn.style.display = 'block'; backBtn.onclick = () => loadDirectory(); title.innerText = "Settings";
+            } else if (viewName === 'browser') {
+                backBtn.style.display = currentPath.length > 0 ? 'block' : 'none';
+                backBtn.onclick = () => navigateUp();
+                title.innerText = currentPath.length > 0 ? currentPath[currentPath.length - 1] : "Home";
+                document.getElementById('search-input').value = ""; 
+            } else if (viewName === 'note') {
+                backBtn.style.display = 'block'; backBtn.onclick = () => loadDirectory();
+                title.innerText = currentFilePath.split('/').pop();
+            }
+        }
+
+        function saveSettings() {
+            localStorage.setItem('ghToken', document.getElementById('gh-token').value);
+            localStorage.setItem('ghOwner', document.getElementById('gh-owner').value);
+            localStorage.setItem('ghRepo', document.getElementById('gh-repo').value);
+            localStorage.setItem('theme', document.getElementById('theme-select').value);
+            localStorage.setItem('hideAttachments', document.getElementById('hide-attachments').checked);
+            localStorage.setItem('onlyMd', document.getElementById('only-md').checked);
+            localStorage.setItem('useHeadings', document.getElementById('use-headings').checked);
+            applyTheme(); currentPath = []; loadDirectory();
+        }
+
+        async function loadDirectory() {
+            showView('browser');
+            const owner = localStorage.getItem('ghOwner');
+            const repo = localStorage.getItem('ghRepo');
+            const token = localStorage.getItem('ghToken');
+            const pathStr = currentPath.join('/');
+            
+            const hideAtt = localStorage.getItem('hideAttachments') === 'true';
+            const onlyMd = localStorage.getItem('onlyMd') === 'true';
+            
+            const url = `https://api.github.com/repos/${owner}/${repo}/contents/${pathStr}`;
+            const listContainer = document.getElementById('file-list');
+            listContainer.innerHTML = "<p>Loading...</p>";
+
+            try {
+                const response = await fetch(url, { headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' } });
+                if (!response.ok) throw new Error("Directory not found or access denied.");
+                
+                let data = await response.json();
+                if (hideAtt) data = data.filter(item => !item.name.startsWith('Attachment-'));
+                if (onlyMd) data = data.filter(item => item.type === 'dir' || item.name.endsWith('.md'));
+
+                data.sort((a, b) => {
+                    if (a.type === b.type) return a.name.localeCompare(b.name);
+                    return a.type === 'dir' ? -1 : 1;
+                });
+
+                directoryData = data;
+                renderFileList(directoryData);
+
+                if (localStorage.getItem('useHeadings') === 'true') fetchAndApplyHeadings(owner, repo);
+            } catch (error) { listContainer.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`; }
+        }
+
+        function renderFileList(dataToRender) {
+            const listContainer = document.getElementById('file-list');
+            listContainer.innerHTML = "";
+
+            dataToRender.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'list-item';
+
+                const mainArea = document.createElement('div');
+                mainArea.className = 'item-main';
+                mainArea.innerHTML = `<span class="${item.type === 'dir' ? 'folder-icon' : 'file-icon'}"></span> <span id="title-${item.sha}">${item.name}</span>`;
+                mainArea.onclick = () => item.type === 'dir' ? navigateDown(item.name) : openFile(item.path);
+
+                const actionsArea = document.createElement('div');
+                if (item.type === 'file') {
+                    actionsArea.innerHTML = `
+                        <div class="menu-container">
+                            <button class="three-dots">⋮</button>
+                            <div class="menu-options">
+                                <button onclick="event.stopPropagation(); shareFile('${item.path}')">Share Note</button>
+                                <button onclick="event.stopPropagation(); renameFile('${item.name}', '${item.path}', '${item.sha}')">Rename</button>
+                                <button onclick="event.stopPropagation(); deleteFile('${item.name}', '${item.path}', '${item.sha}')">Delete</button>
+                            </div>
+                        </div>`;
+                }
+
+                div.appendChild(mainArea); div.appendChild(actionsArea); listContainer.appendChild(div);
+            });
+        }
+
+        async function fetchAndApplyHeadings(owner, repo) {
+            for (let item of directoryData) {
+                if (item.type === 'file' && item.name.endsWith('.md')) {
+                    try {
+                        const token = localStorage.getItem('ghToken');
+                        const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${item.path}`, {
+                            headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3.raw' }
+                        });
+                        if (res.ok) {
+                            const text = await res.text();
+                            const match = text.match(/^#\s+(.+)/m);
+                            if (match) {
+                                const titleEl = document.getElementById(`title-${item.sha}`);
+                                if (titleEl) titleEl.innerText = match[1];
+                            }
+                        }
+                    } catch (e) {}
+                }
+            }
+        }
+
+        function filterFiles() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const filtered = directoryData.filter(item => item.name.toLowerCase().includes(query));
+            renderFileList(filtered);
+        }
+
+        function navigateDown(folderName) { currentPath.push(folderName); loadDirectory(); }
+        function navigateUp() { currentPath.pop(); loadDirectory(); }
+        function goBack() {}
+
+        function getApiHeaders() {
+            return { 'Authorization': `token ${localStorage.getItem('ghToken')}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' };
+        }
+
+        async function openFile(filePath) {
+            const owner = localStorage.getItem('ghOwner');
+            const repo = localStorage.getItem('ghRepo');
+            const token = localStorage.getItem('ghToken');
+            
+            // Handle Direct Media Clicks via Authenticated API Fetch
+            if (filePath.match(/\.(png|jpe?g|gif|webp|svg|mp4|webm|ogg|mp3|wav)$/i)) {
+                try {
+                    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`, {
+                        headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3.raw' }
+                    });
+                    if (!response.ok) throw new Error('Media file not found.');
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+                    window.open(url, '_blank');
+                } catch (e) { alert(e.message); }
+                return;
+            }
+
+            currentFilePath = filePath;
+            const url = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`;
+
+            try {
+                const response = await fetch(url, { headers: getApiHeaders() });
+                if (!response.ok) throw new Error('File access denied.');
+
+                const data = await response.json();
+                currentFileSha = data.sha;
+                
+                document.getElementById('markdown-editor').value = decodeBase64UTF8(data.content);
+                isEditMode = true; 
+                toggleMode();
+                showView('note');
+            } catch (error) { alert(error.message); }
+        }
+
+        async function loadAuthMedia(container) {
+            const owner = localStorage.getItem('ghOwner');
+            const repo = localStorage.getItem('ghRepo');
+            const token = localStorage.getItem('ghToken');
+            
+            const mediaElements = container.querySelectorAll('.auth-media');
+            
+            for (let el of mediaElements) {
+                const mediaPath = el.getAttribute('data-path');
+                if (!mediaPath) continue;
+                
+                const url = `https://api.github.com/repos/${owner}/${repo}/contents/${mediaPath}`;
+                try {
+                    const response = await fetch(url, {
+                        headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3.raw' }
+                    });
+                    
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        const objectUrl = URL.createObjectURL(blob);
+                        el.src = objectUrl;
+                        
+                        // Add click-to-open behavior for parsed images
+                        if (el.tagName === 'IMG') {
+                            el.style.cursor = 'pointer';
+                            el.onclick = () => window.open(objectUrl, '_blank');
+                        }
+                    } else {
+                        if (el.tagName === 'IMG') el.alt = `Failed to load: ${mediaPath}`;
+                    }
+                } catch (e) {
+                    console.error("Error fetching media:", e);
+                }
+            }
+        }
+
+        function toggleMode() {
+            isEditMode = !isEditMode;
+            const viewer = document.getElementById('viewer-container');
+            const editor = document.getElementById('editor-container');
+            const toggleBtn = document.getElementById('toggle-btn');
+
+            if (isEditMode) {
+                viewer.style.display = 'none'; editor.style.display = 'block'; toggleBtn.innerText = 'Switch to View Mode';
+            } else {
+                const rawMarkdown = document.getElementById('markdown-editor').value;
+                const htmlOutput = marked.parse(rawMarkdown);
+                const sanitizedHtml = DOMPurify.sanitize(htmlOutput, sanitizeOptions);
+                
+                // Offline DOM fragment to intercept media requests before injection
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = sanitizedHtml;
+                
+                const allMedia = tempDiv.querySelectorAll('img, video, audio, source');
+                allMedia.forEach(el => {
+                    const src = el.getAttribute('src');
+                    if (src && !src.startsWith('http') && !src.startsWith('data:') && !src.startsWith('blob:')) {
+                        let resolvedPath = src;
+                        if (resolvedPath.startsWith('/')) resolvedPath = resolvedPath.substring(1);
+                        else {
+                            let basePath = currentPath.join('/');
+                            resolvedPath = basePath ? `${basePath}/${resolvedPath}` : resolvedPath;
+                        }
+                        
+                        el.removeAttribute('src'); // Prevent standard 404 load
+                        el.setAttribute('data-path', resolvedPath);
+                        el.classList.add('auth-media');
+                    }
+                });
+                
+                viewer.innerHTML = '';
+                viewer.appendChild(tempDiv);
+                loadAuthMedia(viewer); // Execute secure API fetch protocol
+                
+                editor.style.display = 'none'; viewer.style.display = 'block'; toggleBtn.innerText = 'Switch to Edit Mode';
+            }
+        }
+
+        async function saveFile() {
+            const owner = localStorage.getItem('ghOwner'); const repo = localStorage.getItem('ghRepo');
+            const content = document.getElementById('markdown-editor').value;
+            const url = `https://api.github.com/repos/${owner}/${repo}/contents/${currentFilePath}`;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'PUT', headers: getApiHeaders(),
+                    body: JSON.stringify({ message: `Update ${currentFilePath}`, content: encodeBase64UTF8(content), sha: currentFileSha })
+                });
+                if (!response.ok) throw new Error('Failed to save file.');
+                const data = await response.json(); currentFileSha = data.content.sha;
+                alert("Saved successfully!"); if (isEditMode) toggleMode();
+            } catch (error) { alert(error.message); }
+        }
+
+        function shareFile(itemPath) {
+            const owner = localStorage.getItem('ghOwner');
+            const repo = localStorage.getItem('ghRepo');
+            let currentUrl = window.location.href;
+            
+            // Dynamically strip URL routing segments to calculate the true root deployment path
+            const routeString = `/${owner}/${repo}/`;
+            let baseUrl;
+            
+            if (currentUrl.includes(routeString)) {
+                baseUrl = currentUrl.split(routeString)[0];
+            } else {
+                baseUrl = currentUrl.substring(0, currentUrl.lastIndexOf('/'));
+            }
+            
+            const shareUrl = `${baseUrl}/${owner}/${repo}/${itemPath}`;
+            
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(shareUrl).then(() => {
+                    alert('Share link copied to clipboard:\n' + shareUrl);
+                }).catch(() => {
+                    prompt("Copy the share link below:", shareUrl);
+                });
+            } else {
+                prompt("Copy the share link below:", shareUrl);
+            }
+        }
+
+        async function renameFile(itemName, itemPath, itemSha) {
+            const newName = prompt("Enter new filename (include extension, e.g., .md):", itemName);
+            if (!newName || newName === itemName) return;
+            const owner = localStorage.getItem('ghOwner'); const repo = localStorage.getItem('ghRepo');
+            const basePath = currentPath.join('/'); const newPath = basePath ? `${basePath}/${newName}` : newName;
+            
+            try {
+                const getRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${itemPath}`, { headers: getApiHeaders() });
+                const fileData = await getRes.json();
+                const putRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${newPath}`, {
+                    method: 'PUT', headers: getApiHeaders(), body: JSON.stringify({ message: `Rename ${itemName} to ${newName}`, content: fileData.content })
+                });
+                if (!putRes.ok) throw new Error('Failed to create new file.');
+                const delRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${itemPath}`, {
+                    method: 'DELETE', headers: getApiHeaders(), body: JSON.stringify({ message: `Delete old ${itemName} after rename`, sha: fileData.sha })
+                });
+                if (!delRes.ok) throw new Error('Failed to delete old file.');
+                loadDirectory();
+            } catch (error) { alert(`Error renaming file: ${error.message}`); }
+        }
+
+        async function deleteFile(itemName, itemPath, itemSha) {
+            if (!confirm(`Are you sure you want to delete ${itemName}? This cannot be undone.`)) return;
+            const owner = localStorage.getItem('ghOwner'); const repo = localStorage.getItem('ghRepo');
+            try {
+                const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${itemPath}`, {
+                    method: 'DELETE', headers: getApiHeaders(), body: JSON.stringify({ message: `Delete ${itemName}`, sha: itemSha })
+                });
+                if (!response.ok) throw new Error('Failed to delete file.');
+                loadDirectory();
+            } catch (error) { alert(error.message); }
+        }
+    </script>
+</body>
+</html>
