@@ -89,6 +89,7 @@
             <input type="password" id="gh-token" placeholder="GitHub PAT Token">
             <input type="text" id="gh-owner" placeholder="Repo Owner">
             <input type="text" id="gh-repo" placeholder="Repo Name">
+            <input type="text" id="gh-branch" placeholder="Branch (e.g. main)" value="main">
             
             <label>
                 Theme:
@@ -139,12 +140,30 @@
         const APP_PREFIX = 'mdreader_v2_';
         function setStore(key, value) { localStorage.setItem(APP_PREFIX + key, value); }
         function getStore(key) { return localStorage.getItem(APP_PREFIX + key); }
+        function getBranch() { return getStore('ghBranch') || 'main'; }
 
         let currentPath = [];
         let currentFileSha = null;
         let currentFilePath = "";
         let isEditMode = false;
         let directoryData = [];
+
+        // Helper for Double Tap/Click Interception
+        function setupDoubleTap(element, singleClickCb, doubleClickCb) {
+            let clickTimer = null;
+            element.onclick = (e) => {
+                if (clickTimer) {
+                    clearTimeout(clickTimer);
+                    clickTimer = null;
+                    doubleClickCb();
+                } else {
+                    clickTimer = setTimeout(() => {
+                        clickTimer = null;
+                        singleClickCb();
+                    }, 300); // 300ms threshold
+                }
+            };
+        }
 
         const renderer = new marked.Renderer();
         renderer.link = function(token) {
@@ -179,6 +198,7 @@
             document.getElementById('hide-attachments').checked = getStore('hideAttachments') === 'true';
             document.getElementById('only-md').checked = getStore('onlyMd') === 'true';
             document.getElementById('use-headings').checked = getStore('useHeadings') === 'true';
+            document.getElementById('gh-branch').value = getStore('ghBranch') || 'main';
             applyTheme();
 
             const token = getStore('ghToken');
@@ -243,6 +263,7 @@
             setStore('ghToken', document.getElementById('gh-token').value);
             setStore('ghOwner', document.getElementById('gh-owner').value);
             setStore('ghRepo', document.getElementById('gh-repo').value);
+            setStore('ghBranch', document.getElementById('gh-branch').value || 'main');
             setStore('theme', document.getElementById('theme-select').value);
             setStore('hideAttachments', document.getElementById('hide-attachments').checked);
             setStore('onlyMd', document.getElementById('only-md').checked);
@@ -263,6 +284,7 @@
 
             const owner = getStore('ghOwner');
             const repo = getStore('ghRepo');
+            const branch = getBranch();
             const basePath = currentPath.join('/');
             const newPath = basePath ? `${basePath}/${input}` : input;
 
@@ -270,7 +292,7 @@
                 const putHeaders = { ...getApiHeaders(), 'Content-Type': 'application/json' };
                 const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${newPath}`, {
                     method: 'PUT', headers: putHeaders,
-                    body: JSON.stringify({ message: `Create ${newPath}`, content: encodeBase64UTF8("") })
+                    body: JSON.stringify({ message: `Create ${newPath}`, content: encodeBase64UTF8(""), branch: branch })
                 });
                 
                 if (!response.ok) throw new Error('Failed to create file/folder.');
@@ -285,6 +307,7 @@
             const owner = getStore('ghOwner');
             const repo = getStore('ghRepo');
             const token = getStore('ghToken');
+            const branch = getBranch();
             const pathStr = currentPath.join('/');
             
             const hideAtt = getStore('hideAttachments') === 'true';
@@ -298,7 +321,7 @@
                 return;
             }
 
-            const url = `https://api.github.com/repos/${owner}/${repo}/contents/${pathStr}`;
+            const url = `https://api.github.com/repos/${owner}/${repo}/contents/${pathStr}?ref=${branch}`;
 
             try {
                 const response = await fetch(url, { headers: getApiHeaders(), cache: 'no-store' });
@@ -326,7 +349,7 @@
                 directoryData = data;
                 renderFileList(directoryData);
 
-                if (getStore('useHeadings') === 'true') fetchAndApplyHeadings(owner, repo);
+                if (getStore('useHeadings') === 'true') fetchAndApplyHeadings(owner, repo, branch);
             } catch (error) { 
                 listContainer.innerHTML = `<p style="color:var(--accent); font-weight:bold;">Error: ${error.message}</p>`; 
             }
@@ -377,11 +400,11 @@
             });
         }
 
-        async function fetchAndApplyHeadings(owner, repo) {
+        async function fetchAndApplyHeadings(owner, repo, branch) {
             for (let item of directoryData) {
                 if (item.type === 'file' && item.name.endsWith('.md')) {
                     try {
-                        const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${item.path}`, {
+                        const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${item.path}?ref=${branch}`, {
                             headers: getApiHeaders(),
                             cache: 'no-store'
                         });
@@ -413,11 +436,12 @@
             const owner = getStore('ghOwner');
             const repo = getStore('ghRepo');
             const token = getStore('ghToken');
+            const branch = getBranch();
             
-            // Media Preview Handling with Explicit MIME types to prevent Blob failure
-            if (filePath.match(/\.(png|jpe?g|gif|webp|svg|mp4|webm|ogg|mp3|wav)$/i)) {
+            // Added m4a in regex
+            if (filePath.match(/\.(png|jpe?g|gif|webp|svg|mp4|webm|ogg|mp3|wav|m4a)$/i)) {
                 try {
-                    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`, {
+                    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`, {
                         headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3.raw' },
                         cache: 'no-store'
                     });
@@ -427,7 +451,7 @@
                     const mimeTypes = { 
                         'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 
                         'webp': 'image/webp', 'svg': 'image/svg+xml', 'mp4': 'video/mp4', 'webm': 'video/webm', 
-                        'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'ogg': 'audio/ogg' 
+                        'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'ogg': 'audio/ogg', 'm4a': 'audio/mp4' 
                     };
                     
                     const rawBlob = await response.blob();
@@ -440,7 +464,7 @@
             }
 
             currentFilePath = filePath;
-            const url = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`;
+            const url = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`;
 
             try {
                 const response = await fetch(url, { headers: getApiHeaders(), cache: 'no-store' });
@@ -464,10 +488,18 @@
             container.innerHTML = '';
             
             if (['png','jpg','jpeg','gif','webp','svg'].includes(ext)) {
-                container.innerHTML = `<img src="${url}" style="max-width:100%; height:auto; border-radius:8px; max-height: 70vh;">`;
+                container.innerHTML = `<img id="preview-img" src="${url}" title="Double tap/click to open in new tab" style="max-width:100%; height:auto; border-radius:8px; max-height: 70vh; cursor:pointer;">`;
+                
+                // Double tap handler for preview view
+                const imgEl = document.getElementById('preview-img');
+                setupDoubleTap(imgEl, 
+                    () => {}, // Empty single click
+                    () => window.open(url, '_blank')
+                );
+
             } else if (['mp4','webm'].includes(ext)) {
                 container.innerHTML = `<video controls src="${url}" style="max-width:100%; max-height: 70vh; border-radius:8px;"></video>`;
-            } else if (['mp3','wav','ogg'].includes(ext)) {
+            } else if (['mp3','wav','ogg','m4a'].includes(ext)) {
                 container.innerHTML = `<audio controls src="${url}" style="width:100%; max-width: 500px;"></audio>`;
             }
             
@@ -485,6 +517,7 @@
             const owner = getStore('ghOwner');
             const repo = getStore('ghRepo');
             const token = getStore('ghToken');
+            const branch = getBranch();
             
             const mediaElements = container.querySelectorAll('.auth-media');
             
@@ -492,7 +525,7 @@
                 const mediaPath = el.getAttribute('data-path');
                 if (!mediaPath) continue;
                 
-                const url = `https://api.github.com/repos/${owner}/${repo}/contents/${mediaPath}`;
+                const url = `https://api.github.com/repos/${owner}/${repo}/contents/${mediaPath}?ref=${branch}`;
                 try {
                     const response = await fetch(url, {
                         headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3.raw' },
@@ -501,7 +534,7 @@
                     
                     if (response.ok) {
                         const ext = mediaPath.split('.').pop().toLowerCase();
-                        const mimeTypes = { 'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 'webp': 'image/webp', 'svg': 'image/svg+xml', 'mp4': 'video/mp4', 'webm': 'video/webm' };
+                        const mimeTypes = { 'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 'webp': 'image/webp', 'svg': 'image/svg+xml', 'mp4': 'video/mp4', 'webm': 'video/webm', 'm4a': 'audio/mp4'};
                         
                         const rawBlob = await response.blob();
                         const blob = new Blob([rawBlob], { type: mimeTypes[ext] || 'application/octet-stream' });
@@ -510,7 +543,13 @@
                         
                         if (el.tagName === 'IMG') {
                             el.style.cursor = 'pointer';
-                            el.onclick = () => showMediaPreview(objectUrl, ext, mediaPath);
+                            el.title = "Tap to preview, double tap to open new tab";
+                            
+                            // Double tap handler for inline images
+                            setupDoubleTap(el, 
+                                () => showMediaPreview(objectUrl, ext, mediaPath),
+                                () => window.open(objectUrl, '_blank')
+                            );
                         }
                     } else {
                         if (el.tagName === 'IMG') el.alt = `Failed to load: ${mediaPath}`;
@@ -563,6 +602,7 @@
         async function saveFile() {
             const owner = getStore('ghOwner'); 
             const repo = getStore('ghRepo');
+            const branch = getBranch();
             const content = document.getElementById('markdown-editor').value;
             const newFilePath = document.getElementById('filepath-input').value.trim();
 
@@ -571,36 +611,30 @@
             try {
                 const putHeaders = { ...getApiHeaders(), 'Content-Type': 'application/json' };
                 
-                // Handling internal path changes via the editor path input
                 if (newFilePath !== currentFilePath) {
-                    
-                    // 1. Create file at new path
                     const createRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${newFilePath}`, {
                         method: 'PUT', headers: putHeaders,
-                        body: JSON.stringify({ message: `Create/Move to ${newFilePath}`, content: encodeBase64UTF8(content) })
+                        body: JSON.stringify({ message: `Create/Move to ${newFilePath}`, content: encodeBase64UTF8(content), branch: branch })
                     });
                     if (!createRes.ok) throw new Error('Failed to save to the new path.');
                     const newData = await createRes.json();
 
-                    // 2. Delete original file
                     if (currentFileSha) {
                         await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${currentFilePath}`, {
                             method: 'DELETE', headers: putHeaders, 
-                            body: JSON.stringify({ message: `Delete old ${currentFilePath} after rename/move`, sha: currentFileSha })
+                            body: JSON.stringify({ message: `Delete old ${currentFilePath} after rename/move`, sha: currentFileSha, branch: branch })
                         });
                     }
 
-                    // Update UI Context
                     currentFilePath = newFilePath;
                     currentFileSha = newData.content.sha;
                     document.getElementById('nav-title').innerText = currentFilePath.split('/').pop();
 
                 } else {
-                    // Standard Update
                     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${currentFilePath}`;
                     const response = await fetch(url, {
                         method: 'PUT', headers: putHeaders,
-                        body: JSON.stringify({ message: `Update ${currentFilePath}`, content: encodeBase64UTF8(content), sha: currentFileSha })
+                        body: JSON.stringify({ message: `Update ${currentFilePath}`, content: encodeBase64UTF8(content), sha: currentFileSha, branch: branch })
                     });
                     if (!response.ok) throw new Error('Failed to save file.');
                     const data = await response.json(); 
@@ -630,21 +664,21 @@
         async function renameFile(itemName, itemPath, itemSha) {
             const newName = prompt("Enter new filename (include extension, e.g., .md):", itemName);
             if (!newName || newName === itemName) return;
-            const owner = getStore('ghOwner'); const repo = getStore('ghRepo');
+            const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
             const basePath = currentPath.join('/'); const newPath = basePath ? `${basePath}/${newName}` : newName;
             
             try {
-                const getRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${itemPath}`, { headers: getApiHeaders(), cache: 'no-store' });
+                const getRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${itemPath}?ref=${branch}`, { headers: getApiHeaders(), cache: 'no-store' });
                 const fileData = await getRes.json();
                 
                 const putHeaders = { ...getApiHeaders(), 'Content-Type': 'application/json' };
                 const putRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${newPath}`, {
-                    method: 'PUT', headers: putHeaders, body: JSON.stringify({ message: `Rename ${itemName} to ${newName}`, content: fileData.content })
+                    method: 'PUT', headers: putHeaders, body: JSON.stringify({ message: `Rename ${itemName} to ${newName}`, content: fileData.content, branch: branch })
                 });
                 if (!putRes.ok) throw new Error('Failed to create new file.');
                 
                 const delRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${itemPath}`, {
-                    method: 'DELETE', headers: putHeaders, body: JSON.stringify({ message: `Delete old ${itemName} after rename`, sha: fileData.sha })
+                    method: 'DELETE', headers: putHeaders, body: JSON.stringify({ message: `Delete old ${itemName} after rename`, sha: fileData.sha, branch: branch })
                 });
                 if (!delRes.ok) throw new Error('Failed to delete old file.');
                 loadDirectory();
@@ -657,16 +691,12 @@
             
             const owner = getStore('ghOwner');
             const repo = getStore('ghRepo');
+            const branch = getBranch();
             const basePath = currentPath.join('/');
             const newPath = basePath ? `${basePath}/${newName}` : newName;
 
             try {
-                let res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers: getApiHeaders(), cache: 'no-store' });
-                if (!res.ok) throw new Error("Failed to fetch repository info");
-                let repoInfo = await res.json();
-                let branch = repoInfo.default_branch;
-
-                res = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`, { headers: getApiHeaders(), cache: 'no-store' });
+                let res = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`, { headers: getApiHeaders(), cache: 'no-store' });
                 if (!res.ok) throw new Error("Failed to fetch branch reference");
                 let refData = await res.json();
                 let latestCommitSha = refData.object.sha;
@@ -713,11 +743,11 @@
 
         async function deleteFile(itemName, itemPath, itemSha) {
             if (!confirm(`Are you sure you want to delete ${itemName}? This cannot be undone.`)) return;
-            const owner = getStore('ghOwner'); const repo = getStore('ghRepo');
+            const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
             try {
                 const delHeaders = { ...getApiHeaders(), 'Content-Type': 'application/json' };
                 const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${itemPath}`, {
-                    method: 'DELETE', headers: delHeaders, body: JSON.stringify({ message: `Delete ${itemName}`, sha: itemSha })
+                    method: 'DELETE', headers: delHeaders, body: JSON.stringify({ message: `Delete ${itemName}`, sha: itemSha, branch: branch })
                 });
                 if (!response.ok) throw new Error('Failed to delete file.');
                 loadDirectory();
