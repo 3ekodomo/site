@@ -171,25 +171,38 @@
             applyTheme();
 
             const token = getStore('ghToken');
-            const routeMatch = window.location.pathname.match(/\/site\/mdreader\/([^/]+)\/([^/]+)\/(.+)/);
+            const owner = getStore('ghOwner');
+            const repo = getStore('ghRepo');
             
-            if (routeMatch) {
-                setStore('ghOwner', routeMatch[1]);
-                setStore('ghRepo', routeMatch[2]);
-                
-                if (token) {
-                    openFile(routeMatch[3]);
+            // Query Parameter Routing Logic
+            const urlParams = new URLSearchParams(window.location.search);
+            const openPath = urlParams.get('open');
+            
+            if (openPath) {
+                if (token && owner && repo) {
+                    document.getElementById('gh-token').value = token;
+                    document.getElementById('gh-owner').value = owner;
+                    document.getElementById('gh-repo').value = repo;
+                    
+                    // Simple check: Does it have an extension? If yes, file. If no, folder.
+                    if (openPath.split('/').pop().includes('.')) {
+                        openFile(openPath);
+                    } else {
+                        currentPath = openPath.split('/').filter(p => p);
+                        loadDirectory();
+                    }
+                    return;
                 } else {
-                    alert("Please enter your GitHub Token in settings first to view this shared link.");
+                    alert("Please enter your GitHub credentials in settings first to view this shared link.");
                     showView('settings');
+                    return;
                 }
-                return;
             }
 
-            if (token) {
+            if (token && owner && repo) {
                 document.getElementById('gh-token').value = token;
-                document.getElementById('gh-owner').value = getStore('ghOwner') || "";
-                document.getElementById('gh-repo').value = getStore('ghRepo') || "";
+                document.getElementById('gh-owner').value = owner;
+                document.getElementById('gh-repo').value = repo;
                 loadDirectory();
             } else {
                 showView('settings');
@@ -228,15 +241,10 @@
             applyTheme(); currentPath = []; loadDirectory();
         }
 
-        // Fixed Headers - Removed Custom Headers that triggered CORS crashes
         function getApiHeaders() {
             const token = getStore('ghToken');
-            const headers = { 
-                'Accept': 'application/vnd.github.v3+json'
-            };
-            if (token && token.trim() !== '') {
-                headers['Authorization'] = `token ${token.trim()}`;
-            }
+            const headers = { 'Accept': 'application/vnd.github.v3+json' };
+            if (token && token.trim() !== '') headers['Authorization'] = `token ${token.trim()}`;
             return headers;
         }
 
@@ -261,7 +269,6 @@
             const url = `https://api.github.com/repos/${owner}/${repo}/contents/${pathStr}`;
 
             try {
-                // cache property tells the browser to skip cache, without sending bad headers to GitHub
                 const response = await fetch(url, { headers: getApiHeaders(), cache: 'no-store' });
                 if (!response.ok) {
                     if (response.status === 401) throw new Error("Invalid GitHub Token. Check Settings.");
@@ -301,19 +308,26 @@
                 mainArea.onclick = () => item.type === 'dir' ? navigateDown(item.name) : openFile(item.path);
 
                 const actionsArea = document.createElement('div');
+                let menuHtml = `
+                    <div class="menu-container">
+                        <button class="three-dots">⋮</button>
+                        <div class="menu-options">
+                            <button onclick="event.stopPropagation(); shareFile('${item.path}')">Share Link</button>`;
+                
                 if (item.type === 'file') {
-                    actionsArea.innerHTML = `
-                        <div class="menu-container">
-                            <button class="three-dots">⋮</button>
-                            <div class="menu-options">
-                                <button onclick="event.stopPropagation(); shareFile('${item.path}')">Share Note</button>
-                                <button onclick="event.stopPropagation(); renameFile('${item.name}', '${item.path}', '${item.sha}')">Rename</button>
-                                <button onclick="event.stopPropagation(); deleteFile('${item.name}', '${item.path}', '${item.sha}')">Delete</button>
-                            </div>
-                        </div>`;
+                    menuHtml += `
+                            <button onclick="event.stopPropagation(); renameFile('${item.name}', '${item.path}', '${item.sha}')">Rename</button>
+                            <button onclick="event.stopPropagation(); deleteFile('${item.name}', '${item.path}', '${item.sha}')">Delete</button>`;
                 }
-
-                div.appendChild(mainArea); div.appendChild(actionsArea); listContainer.appendChild(div);
+                
+                menuHtml += `
+                        </div>
+                    </div>`;
+                
+                actionsArea.innerHTML = menuHtml;
+                div.appendChild(mainArea); 
+                div.appendChild(actionsArea); 
+                listContainer.appendChild(div);
             });
         }
 
@@ -400,7 +414,7 @@
                 try {
                     const response = await fetch(url, {
                         headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3.raw' },
-                        cache: 'default' // Allow the browser to cache fetched media securely
+                        cache: 'default'
                     });
                     
                     if (response.ok) {
@@ -466,7 +480,6 @@
             const url = `https://api.github.com/repos/${owner}/${repo}/contents/${currentFilePath}`;
 
             try {
-                // Must add Content-Type back specifically for PUT requests
                 const putHeaders = { ...getApiHeaders(), 'Content-Type': 'application/json' };
                 const response = await fetch(url, {
                     method: 'PUT', headers: putHeaders,
@@ -479,20 +492,9 @@
         }
 
         function shareFile(itemPath) {
-            const owner = getStore('ghOwner');
-            const repo = getStore('ghRepo');
-            let currentUrl = window.location.href;
-            
-            const routeString = `/${owner}/${repo}/`;
-            let baseUrl;
-            
-            if (currentUrl.includes(routeString)) {
-                baseUrl = currentUrl.split(routeString)[0];
-            } else {
-                baseUrl = currentUrl.substring(0, currentUrl.lastIndexOf('/'));
-            }
-            
-            const shareUrl = `${baseUrl}/${owner}/${repo}/${itemPath}`;
+            // Strips query parameters and gets base domain + directory
+            const baseUrl = window.location.origin + window.location.pathname;
+            const shareUrl = `${baseUrl}?open=${encodeURIComponent(itemPath)}`;
             
             if (navigator.clipboard && window.isSecureContext) {
                 navigator.clipboard.writeText(shareUrl).then(() => {
