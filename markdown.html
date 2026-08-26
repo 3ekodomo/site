@@ -16,6 +16,11 @@
         body.theme-light { --bg-color: #f7f7f7; --text-color: #24292e; --panel-bg: #ffffff; --border-color: #e1e4e8; }
         body.theme-black { --bg-color: #000000; --text-color: #cccccc; --panel-bg: #0a0a0a; --border-color: #222222; }
 
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-color); color: var(--text-color);
@@ -23,8 +28,10 @@
             height: 100vh; transition: background-color 0.3s, color 0.3s;
         }
 
-        .navbar { background-color: var(--panel-bg); padding: 15px 20px; display: flex; align-items: center; border-bottom: 1px solid var(--border-color); }
-        .navbar button { background: none; border: none; color: var(--text-color); font-size: 18px; cursor: pointer; margin-left: 15px; }
+        .navbar { background-color: var(--panel-bg); padding: 15px 20px; display: flex; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .navbar button { background: none; border: none; color: var(--text-color); font-size: 18px; cursor: pointer; margin-left: 15px; transition: transform 0.2s, opacity 0.2s; }
+        .navbar button:hover { opacity: 0.8; transform: scale(1.1); }
+        .navbar button:active { transform: scale(0.95); }
         .navbar h2 { margin: 0; font-size: 18px; flex-grow: 1; font-weight: normal; }
 
         .breadcrumb {
@@ -39,16 +46,26 @@
         .active-view { display: block; }
         
         .settings-form { display: flex; flex-direction: column; gap: 15px; max-width: 400px; margin: auto; }
-        .settings-form input, .settings-form select { background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); padding: 10px; border-radius: 4px; }
+        .settings-form input, .settings-form select { background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); padding: 10px; border-radius: 6px; transition: border-color 0.3s, box-shadow 0.3s; }
+        .settings-form input:focus, .settings-form select:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(255, 82, 82, 0.2); }
         .settings-form label { display: flex; align-items: center; gap: 10px; }
         
-        .btn-primary { background: var(--accent); color: var(--btn-text); border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold;}
-        .btn-success { background: #2ea44f; color: #ffffff; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold;}
-        .btn-info { background: #1d9bf0; color: #ffffff; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold;}
+        button { transition: background-color 0.3s, transform 0.1s; }
+        button:active { transform: scale(0.98); }
+        .btn-primary { background: var(--accent); color: var(--btn-text); border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-primary:hover { filter: brightness(1.1); }
+        .btn-success { background: #2ea44f; color: #ffffff; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold;}
+        .btn-success:hover { background: #2c974b; }
+        .btn-info { background: #1d9bf0; color: #ffffff; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold;}
+        .btn-info:hover { background: #1a8cd8; }
+
+        .search-bar { width: 100%; padding: 12px; margin-bottom: 15px; box-sizing: border-box; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 8px; transition: border-color 0.3s, box-shadow 0.3s;}
+        .search-bar:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(255, 82, 82, 0.2); }
         
-        .search-bar { width: 100%; padding: 10px; margin-bottom: 15px; box-sizing: border-box; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px;}
-        .list-item { padding: 15px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-        .list-item:hover { background-color: var(--panel-bg); }
+        #file-list { background: var(--panel-bg); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; }
+        .list-item { padding: 15px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 10px; transition: background-color 0.2s; }
+        .list-item:last-child { border-bottom: none; }
+        .list-item:hover { background-color: var(--bg-color); }
         .item-main { display: flex; align-items: center; gap: 15px; cursor: pointer; flex-grow: 1; overflow: hidden; }
         
         .menu-container { position: relative; display: inline-block; }
@@ -69,19 +86,55 @@
         .toolbar { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
         #viewer-container, #editor-container {
             width: 100%; min-height: 70vh; background-color: var(--panel-bg);
-            border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; box-sizing: border-box; overflow-x: hidden;
+            border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; box-sizing: border-box; overflow-x: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         }
-        #editor-container { display: none; padding: 0; background: transparent; border: none;}
+        #editor-container { display: none; padding: 0; background: transparent; border: none; box-shadow: none; }
         #editor-container .search-bar { margin-bottom: 10px; }
         textarea {
             width: 100%; height: 60vh; background: var(--panel-bg); color: var(--text-color);
-            border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; resize: none; font-family: monospace; font-size: 16px; outline: none; box-sizing: border-box;
+            border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; resize: none; font-family: monospace; font-size: 16px; outline: none; box-sizing: border-box; transition: border-color 0.3s, box-shadow 0.3s;
         }
+        textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(255, 82, 82, 0.2); }
         
         video, audio, img { max-width: 100%; border-radius: 4px; display: block; margin: 10px auto; }
+
+        /* Custom Modal Styles */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);
+            display: none; align-items: center; justify-content: center; z-index: 1000;
+        }
+        .modal-content {
+            background: var(--panel-bg); color: var(--text-color);
+            padding: 25px; border-radius: 8px; border: 1px solid var(--border-color);
+            min-width: 300px; max-width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            animation: slideDown 0.3s ease-out; display: flex; flex-direction: column; gap: 15px;
+        }
+        @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-content p { margin: 0; line-height: 1.5; white-space: pre-wrap; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+        .modal-input {
+            width: 100%; padding: 10px; background: var(--bg-color); color: var(--text-color);
+            border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; display: none;
+        }
+        .modal-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(255, 82, 82, 0.2); }
+        .btn-cancel { background: transparent; color: var(--text-color); border: 1px solid var(--border-color); padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-cancel:hover { background: var(--bg-color); }
+
     </style>
 </head>
 <body>
+
+    <!-- Custom Modal Overlay -->
+    <div id="custom-modal" class="modal-overlay">
+        <div class="modal-content">
+            <p id="modal-message"></p>
+            <input type="text" id="modal-input" class="modal-input">
+            <div class="modal-actions" id="modal-actions">
+                <!-- Buttons will be injected here -->
+            </div>
+        </div>
+    </div>
 
     <div class="navbar">
         <button onclick="navigateUp()" id="back-btn" style="display: none; margin-left: 0; margin-right: 15px;">←</button>
@@ -164,6 +217,65 @@
         let isEditMode = false;
         let directoryData = [];
 
+        // Custom Modal Logic
+        function showCustomModal(message, type, defaultValue = "") {
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('custom-modal');
+                const msgEl = document.getElementById('modal-message');
+                const inputEl = document.getElementById('modal-input');
+                const actionsEl = document.getElementById('modal-actions');
+
+                msgEl.innerText = message;
+                actionsEl.innerHTML = '';
+                inputEl.style.display = 'none';
+                inputEl.value = defaultValue;
+
+                const close = (value) => {
+                    overlay.style.display = 'none';
+                    resolve(value);
+                };
+
+                if (type === 'alert') {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn-primary'; btn.innerText = 'OK';
+                    btn.onclick = () => close(true);
+                    actionsEl.appendChild(btn);
+                    setTimeout(() => btn.focus(), 10);
+                } else if (type === 'confirm') {
+                    const btnCancel = document.createElement('button');
+                    btnCancel.className = 'btn-cancel'; btnCancel.innerText = 'Cancel';
+                    btnCancel.onclick = () => close(false);
+
+                    const btnOk = document.createElement('button');
+                    btnOk.className = 'btn-primary'; btnOk.innerText = 'OK';
+                    btnOk.onclick = () => close(true);
+
+                    actionsEl.appendChild(btnCancel); actionsEl.appendChild(btnOk);
+                    setTimeout(() => btnOk.focus(), 10);
+                } else if (type === 'prompt') {
+                    inputEl.style.display = 'block';
+                    const btnCancel = document.createElement('button');
+                    btnCancel.className = 'btn-cancel'; btnCancel.innerText = 'Cancel';
+                    btnCancel.onclick = () => close(null);
+
+                    const btnOk = document.createElement('button');
+                    btnOk.className = 'btn-primary'; btnOk.innerText = 'OK';
+                    btnOk.onclick = () => close(inputEl.value);
+
+                    inputEl.onkeydown = (e) => { if (e.key === 'Enter') btnOk.click(); if (e.key === 'Escape') btnCancel.click(); };
+
+                    actionsEl.appendChild(btnCancel); actionsEl.appendChild(btnOk);
+                    setTimeout(() => { inputEl.focus(); inputEl.select(); }, 10);
+                }
+
+                overlay.style.display = 'flex';
+            });
+        }
+
+        async function customAlert(msg) { return await showCustomModal(msg, 'alert'); }
+        async function customConfirm(msg) { return await showCustomModal(msg, 'confirm'); }
+        async function customPrompt(msg, def) { return await showCustomModal(msg, 'prompt', def); }
+
         function setupDoubleTap(element, singleClickCb, doubleClickCb) {
             let clickTimer = null;
             element.onclick = (e) => {
@@ -198,8 +310,8 @@
         marked.setOptions({ renderer: renderer, gfm: true, breaks: true });
 
         const sanitizeOptions = {
-            ADD_TAGS: ['video', 'audio', 'source', 'track', 'iframe', 'div', 'span', 'details', 'summary', 'kbd', 'br', 'hr', 'table', 'tr', 'td', 'th', 'thead', 'tbody'],
-            ADD_ATTR: ['target', 'style', 'src', 'controls', 'autoplay', 'loop', 'muted', 'allow', 'allowfullscreen', 'frameborder', 'data-path', 'class', 'id', 'type', 'width', 'height']
+            ADD_TAGS: ['video', 'audio', 'source', 'track', 'iframe', 'div', 'span', 'details', 'summary', 'kbd', 'br', 'hr', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'style', 'font', 'center', 'strike', 'u', 'mark', 'sub', 'sup', 'abbr', 'b', 'i', 'strong', 'em', 'del', 'ins'],
+            ADD_ATTR: ['target', 'style', 'src', 'controls', 'autoplay', 'loop', 'muted', 'allow', 'allowfullscreen', 'frameborder', 'data-path', 'class', 'id', 'type', 'width', 'height', 'align', 'valign', 'color', 'bgcolor', 'border']
         };
 
         const decodeBase64UTF8 = (base64) => {
@@ -231,7 +343,7 @@
             });
         }
 
-        window.onload = () => {
+        window.onload = async () => {
             document.getElementById('theme-select').value = getStore('theme') || 'theme-dark';
             document.getElementById('hide-attachments').checked = getStore('hideAttachments') === 'true';
             document.getElementById('only-md').checked = getStore('onlyMd') === 'true';
@@ -264,7 +376,7 @@
                     }
                     return;
                 } else {
-                    alert("Please enter your GitHub credentials in settings first to view this shared link.");
+                    await customAlert("Please enter your GitHub credentials in settings first to view this shared link.");
                     showView('settings');
                     return;
                 }
@@ -382,7 +494,7 @@
         }
 
         async function createNewItem() {
-            const input = prompt("Enter file name (e.g., 'notes.md').\nTo create a folder, add a file inside it:");
+            const input = await customPrompt("Enter file name (e.g., 'notes.md').\nTo create a folder, add a file inside it:");
             if (!input) return;
             const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
             const basePath = currentPath.join('/'); const newPath = basePath ? `${basePath}/${input}` : input;
@@ -395,7 +507,7 @@
                 });
                 if (!response.ok) throw new Error('Failed to create file/folder.');
                 loadDirectory();
-            } catch (error) { alert(`Error: ${error.message}`); }
+            } catch (error) { await customAlert(`Error: ${error.message}`); }
         }
 
         async function loadDirectory() {
@@ -500,7 +612,7 @@
                     
                     const rawBlob = await response.blob(); const properBlob = new Blob([rawBlob], { type: mimeTypes[ext] || 'application/octet-stream' });
                     const url = URL.createObjectURL(properBlob); showMediaPreview(url, ext, filePath);
-                } catch (e) { alert("Media error: " + e.message); }
+                } catch (e) { await customAlert("Media error: " + e.message); }
                 return;
             }
 
@@ -517,7 +629,7 @@
                 
                 isEditMode = true; toggleMode(); showView('note');
                 updateBreadcrumbs(true); updateUrl(true);
-            } catch (error) { alert("Error opening file: " + error.message); }
+            } catch (error) { await customAlert("Error opening file: " + error.message); }
         }
 
         function showMediaPreview(url, ext, filePath) {
@@ -582,13 +694,13 @@
         }
 
         async function uploadLocalImagesToImgBB() {
-            const imgbbKey = getStore('imgbbKey'); if (!imgbbKey) { alert("Please add your ImgBB API Key in Settings first."); showView('settings'); return; }
+            const imgbbKey = getStore('imgbbKey'); if (!imgbbKey) { await customAlert("Please add your ImgBB API Key in Settings first."); showView('settings'); return; }
             const shouldCompress = getStore('compressImages') === 'true'; const editor = document.getElementById('markdown-editor'); let content = editor.value;
             const imgRegex = /!\[([^\]]*)\]\(([^\)]+)\)/g; let matches = [...content.matchAll(imgRegex)];
             let localMatches = matches.filter(m => { const url = m[2]; return !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('data:') && !url.startsWith('blob:'); });
 
-            if (localMatches.length === 0) { alert("No local images found in this note to upload."); return; }
-            if (!confirm(`Found ${localMatches.length} local images. Upload them to ImgBB and replace their paths?`)) return;
+            if (localMatches.length === 0) { await customAlert("No local images found in this note to upload."); return; }
+            if (!await customConfirm(`Found ${localMatches.length} local images. Upload them to ImgBB and replace their paths?`)) return;
 
             const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
             const btn = document.getElementById('imgbb-btn'); const originalBtnText = btn.innerText;
@@ -625,14 +737,14 @@
                     const newMdImg = `![${altText}](${newImgUrl})`; content = content.replace(fullMatch, newMdImg); successCount++;
                 } catch (err) { console.error("Upload failed for:", imgPath, err); failCount++; }
             }
-            editor.value = content; btn.innerText = originalBtnText; alert(`Finished Migration!\n\nSuccessfully Uploaded: ${successCount}\nFailed: ${failCount}\n\nPlease click 'Save to GitHub' to preserve these changes.`);
+            editor.value = content; btn.innerText = originalBtnText; await customAlert(`Finished Migration!\n\nSuccessfully Uploaded: ${successCount}\nFailed: ${failCount}\n\nPlease click 'Save to GitHub' to preserve these changes.`);
             if (!isEditMode) { toggleMode(); toggleMode(); }
         }
 
         async function saveFile() {
             const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
             const content = document.getElementById('markdown-editor').value; const newFilePath = document.getElementById('filepath-input').value.trim();
-            if (!newFilePath) return alert("File path cannot be empty.");
+            if (!newFilePath) return await customAlert("File path cannot be empty.");
 
             try {
                 const putHeaders = { ...getApiHeaders(), 'Content-Type': 'application/json' };
@@ -648,18 +760,18 @@
                     if (!response.ok) throw new Error('Failed to save file.');
                     const data = await response.json(); currentFileSha = data.content.sha;
                 }
-                alert("Saved successfully!"); if (isEditMode) toggleMode();
-            } catch (error) { alert(error.message); }
+                await customAlert("Saved successfully!"); if (isEditMode) toggleMode();
+            } catch (error) { await customAlert(error.message); }
         }
 
-        function shareFile(itemPath) {
+        async function shareFile(itemPath) {
             const baseUrl = window.location.origin + window.location.pathname; const shareUrl = `${baseUrl}?open=${encodeURIComponent(itemPath)}`;
-            if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(shareUrl).then(() => { alert('Share link copied to clipboard:\n' + shareUrl); }).catch(() => { prompt("Copy the share link below:", shareUrl); });
-            } else { prompt("Copy the share link below:", shareUrl); }
+            if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(shareUrl).then(async () => { await customAlert('Share link copied to clipboard:\n' + shareUrl); }).catch(async () => { await customPrompt("Copy the share link below:", shareUrl); });
+            } else { await customPrompt("Copy the share link below:", shareUrl); }
         }
 
         async function renameFile(itemName, itemPath, itemSha) {
-            const newName = prompt("Enter new filename (include extension, e.g., .md):", itemName);
+            const newName = await customPrompt("Enter new filename (include extension, e.g., .md):", itemName);
             if (!newName || newName === itemName) return;
             const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
             const basePath = currentPath.join('/'); const newPath = basePath ? `${basePath}/${newName}` : newName;
@@ -673,11 +785,11 @@
                 const delRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${itemPath}`, { method: 'DELETE', headers: putHeaders, body: JSON.stringify({ message: `Delete old ${itemName} after rename`, sha: fileData.sha, branch: branch }) });
                 if (!delRes.ok) throw new Error('Failed to delete old file.');
                 loadDirectory();
-            } catch (error) { alert(`Error renaming file: ${error.message}`); }
+            } catch (error) { await customAlert(`Error renaming file: ${error.message}`); }
         }
 
         async function renameFolder(oldName, oldPath, itemSha) {
-            const newName = prompt("Enter new folder name:", oldName);
+            const newName = await customPrompt("Enter new folder name:", oldName);
             if (!newName || newName === oldName) return;
             const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
             const basePath = currentPath.join('/'); const newPath = basePath ? `${basePath}/${newName}` : newName;
@@ -706,18 +818,18 @@
                 res = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`, { method: 'PATCH', headers: postHeaders, body: JSON.stringify(refPayload) });
                 if (!res.ok) throw new Error("Failed to update branch reference");
                 loadDirectory();
-            } catch (error) { alert(`Error renaming folder: ${error.message}`); }
+            } catch (error) { await customAlert(`Error renaming folder: ${error.message}`); }
         }
 
         async function deleteFile(itemName, itemPath, itemSha) {
-            if (!confirm(`Are you sure you want to delete ${itemName}? This cannot be undone.`)) return;
+            if (!await customConfirm(`Are you sure you want to delete ${itemName}? This cannot be undone.`)) return;
             const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
             try {
                 const delHeaders = { ...getApiHeaders(), 'Content-Type': 'application/json' };
                 const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${itemPath}`, { method: 'DELETE', headers: delHeaders, body: JSON.stringify({ message: `Delete ${itemName}`, sha: itemSha, branch: branch }) });
                 if (!response.ok) throw new Error('Failed to delete file.');
                 loadDirectory();
-            } catch (error) { alert(error.message); }
+            } catch (error) { await customAlert(error.message); }
         }
     </script>
 </body>
