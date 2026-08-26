@@ -27,6 +27,14 @@
         .navbar button { background: none; border: none; color: var(--text-color); font-size: 18px; cursor: pointer; margin-left: 15px; }
         .navbar h2 { margin: 0; font-size: 18px; flex-grow: 1; font-weight: normal; }
 
+        .breadcrumb {
+            padding: 10px 20px; background: var(--panel-bg); border-bottom: 1px solid var(--border-color); font-size: 14px; display: none; overflow-x: auto; white-space: nowrap;
+        }
+        .breadcrumb span { cursor: pointer; color: var(--accent); }
+        .breadcrumb span:hover { text-decoration: underline; }
+        .breadcrumb .current-file { color: var(--text-color); opacity: 0.7; cursor: default; }
+        .breadcrumb .current-file:hover { text-decoration: none; }
+
         .view { display: none; padding: 20px; flex-grow: 1; overflow-y: auto; }
         .active-view { display: block; }
         
@@ -76,11 +84,14 @@
 <body>
 
     <div class="navbar">
-        <button onclick="goBack()" id="back-btn" style="display: none; margin-left: 0; margin-right: 15px;">←</button>
+        <button onclick="navigateUp()" id="back-btn" style="display: none; margin-left: 0; margin-right: 15px;">←</button>
         <h2 id="nav-title">GitHub Notes</h2>
         <button onclick="createNewItem()" title="Add Note or Folder">➕</button>
         <button onclick="showView('settings')" title="Settings">⚙️</button>
     </div>
+
+    <!-- Breadcrumb Navigation -->
+    <div id="breadcrumb-container" class="breadcrumb"></div>
 
     <!-- Settings View -->
     <div id="view-settings" class="view">
@@ -115,7 +126,7 @@
 
     <!-- Browser View -->
     <div id="view-browser" class="view">
-        <input type="text" id="search-input" class="search-bar" placeholder="Filter files..." onkeyup="filterFiles()">
+        <input type="text" id="search-input" class="search-bar" placeholder="Filter files or paste znotes:// link..." onkeyup="handleSearchInput(event)">
         <div id="file-list"></div>
     </div>
 
@@ -142,7 +153,6 @@
     </div>
 
     <script>
-        // Namespaced Storage System
         const APP_PREFIX = 'mdreader_v2_';
         function setStore(key, value) { localStorage.setItem(APP_PREFIX + key, value); }
         function getStore(key) { return localStorage.getItem(APP_PREFIX + key); }
@@ -198,42 +208,25 @@
         };
         const encodeBase64UTF8 = (str) => btoa(unescape(encodeURIComponent(str)));
 
-        // Helper function to compress base64 image data
         function compressBase64Image(base64Str, quality = 0.75, maxSize = 1920) {
             return new Promise((resolve, reject) => {
                 const img = new Image();
                 img.onload = () => {
-                    let width = img.width;
-                    let height = img.height;
-
+                    let width = img.width; let height = img.height;
                     if (width > maxSize || height > maxSize) {
-                        if (width > height) {
-                            height = Math.round((height * maxSize) / width);
-                            width = maxSize;
-                        } else {
-                            width = Math.round((width * maxSize) / height);
-                            height = maxSize;
-                        }
+                        if (width > height) { height = Math.round((height * maxSize) / width); width = maxSize; } 
+                        else { width = Math.round((width * maxSize) / height); height = maxSize; }
                     }
-
                     const canvas = document.createElement('canvas');
-                    canvas.width = width;
-                    canvas.height = height;
+                    canvas.width = width; canvas.height = height;
                     const ctx = canvas.getContext('2d');
-                    
-                    // Fill white background for transparent PNGs before converting to JPEG
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.fillRect(0, 0, width, height);
+                    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, width, height);
                     ctx.drawImage(img, 0, 0, width, height);
-                    
-                    // Always compress to JPEG to save space
                     const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
                     const compressedBase64 = compressedDataUrl.split(',')[1];
                     resolve(compressedBase64);
                 };
                 img.onerror = (e) => reject("Image loading failed for compression");
-                
-                // Construct generic data URI for loading into canvas
                 img.src = `data:image/png;base64,${base64Str}`;
             });
         }
@@ -254,51 +247,117 @@
             
             const urlParams = new URLSearchParams(window.location.search);
             const openPath = urlParams.get('open');
+            const folderPath = urlParams.get('path');
             
             if (openPath) {
                 if (token && owner && repo) {
-                    document.getElementById('gh-token').value = token;
-                    document.getElementById('gh-owner').value = owner;
-                    document.getElementById('gh-repo').value = repo;
+                    document.getElementById('gh-token').value = token; document.getElementById('gh-owner').value = owner; document.getElementById('gh-repo').value = repo;
                     
-                    if (openPath.split('/').pop().includes('.')) openFile(openPath);
-                    else { currentPath = openPath.split('/').filter(p => p); loadDirectory(); }
+                    let folderParts = openPath.split('/');
+                    if (openPath.includes('.')) {
+                        folderParts.pop();
+                        currentPath = folderParts;
+                        openFile(openPath);
+                    } else { 
+                        currentPath = openPath.split('/').filter(p => p); 
+                        loadDirectory(); 
+                    }
                     return;
                 } else {
                     alert("Please enter your GitHub credentials in settings first to view this shared link.");
                     showView('settings');
                     return;
                 }
+            } else if (folderPath && token && owner && repo) {
+                document.getElementById('gh-token').value = token; document.getElementById('gh-owner').value = owner; document.getElementById('gh-repo').value = repo;
+                currentPath = folderPath.split('/').filter(p => p);
+                loadDirectory();
+                return;
             }
 
             if (token && owner && repo) {
-                document.getElementById('gh-token').value = token;
-                document.getElementById('gh-owner').value = owner;
-                document.getElementById('gh-repo').value = repo;
+                document.getElementById('gh-token').value = token; document.getElementById('gh-owner').value = owner; document.getElementById('gh-repo').value = repo;
                 loadDirectory();
-            } else {
-                showView('settings');
-            }
+            } else { showView('settings'); }
         };
 
+        window.addEventListener('popstate', (event) => { window.location.reload(); });
+
         function applyTheme() { document.body.className = document.getElementById('theme-select').value; }
+
+        function updateUrl(isFile = false) {
+            const url = new URL(window.location);
+            url.searchParams.delete('open'); url.searchParams.delete('path');
+
+            if (isFile && currentFilePath) url.searchParams.set('open', currentFilePath);
+            else if (currentPath.length > 0) url.searchParams.set('path', currentPath.join('/'));
+
+            if (window.location.search !== url.search) {
+                window.history.pushState({ path: currentPath, file: currentFilePath, isFile }, "", url);
+            }
+        }
+
+        function updateBreadcrumbs(isFile = false) {
+            const container = document.getElementById('breadcrumb-container');
+            if (!getStore('ghToken') || !getStore('ghOwner')) { container.style.display = 'none'; return; }
+            
+            container.style.display = 'block';
+            let html = `<span onclick="goToBreadcrumb(-1)">Root</span>`;
+            
+            currentPath.forEach((part, index) => { html += ` > <span onclick="goToBreadcrumb(${index})">${part}</span>`; });
+
+            if (isFile && currentFilePath) {
+                const fileName = currentFilePath.split('/').pop();
+                html += ` > <span class="current-file">${fileName}</span>`;
+            }
+            container.innerHTML = html;
+        }
+
+        function goToBreadcrumb(index) {
+            if (index === -1) currentPath = [];
+            else currentPath = currentPath.slice(0, index + 1);
+            currentFilePath = "";
+            loadDirectory();
+        }
+
+        function handleSearchInput(event) {
+            const query = document.getElementById('search-input').value.trim();
+            if (query.startsWith('znotes://')) {
+                let pathPart = query.substring(9);
+                let parts = pathPart.split('/');
+                parts.shift(); // Remove repository name treating it as root
+                
+                let targetPath = decodeURIComponent(parts.join('/'));
+                document.getElementById('search-input').value = '';
+                
+                let folderParts = targetPath.split('/');
+                folderParts.pop(); 
+                currentPath = folderParts;
+                openFile(targetPath);
+                return;
+            }
+            filterFiles();
+        }
 
         function showView(viewName) {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active-view'));
             document.getElementById(`view-${viewName}`).classList.add('active-view');
             const backBtn = document.getElementById('back-btn');
             const title = document.getElementById('nav-title');
+            const breadcrumb = document.getElementById('breadcrumb-container');
 
             if (viewName === 'settings') {
                 backBtn.style.display = 'block'; backBtn.onclick = () => loadDirectory(); title.innerText = "Settings";
+                breadcrumb.style.display = 'none';
             } else if (viewName === 'browser') {
-                backBtn.style.display = currentPath.length > 0 ? 'block' : 'none';
-                backBtn.onclick = () => navigateUp();
+                backBtn.style.display = currentPath.length > 0 ? 'block' : 'none'; backBtn.onclick = () => navigateUp();
                 title.innerText = currentPath.length > 0 ? currentPath[currentPath.length - 1] : "Home";
                 document.getElementById('search-input').value = ""; 
+                breadcrumb.style.display = 'block';
             } else if (viewName === 'note' || viewName === 'media') {
                 backBtn.style.display = 'block'; backBtn.onclick = () => loadDirectory();
                 title.innerText = currentFilePath.split('/').pop();
+                breadcrumb.style.display = 'block';
             }
         }
 
@@ -317,21 +376,16 @@
         }
 
         function getApiHeaders() {
-            const token = getStore('ghToken');
-            const headers = { 'Accept': 'application/vnd.github.v3+json' };
+            const token = getStore('ghToken'); const headers = { 'Accept': 'application/vnd.github.v3+json' };
             if (token && token.trim() !== '') headers['Authorization'] = `token ${token.trim()}`;
             return headers;
         }
 
         async function createNewItem() {
-            const input = prompt("Enter file name (e.g., 'notes.md').\nTo create a folder, add a file inside it (e.g., 'NewFolder/notes.md' or 'NewFolder/.gitkeep'):");
+            const input = prompt("Enter file name (e.g., 'notes.md').\nTo create a folder, add a file inside it:");
             if (!input) return;
-
-            const owner = getStore('ghOwner');
-            const repo = getStore('ghRepo');
-            const branch = getBranch();
-            const basePath = currentPath.join('/');
-            const newPath = basePath ? `${basePath}/${input}` : input;
+            const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
+            const basePath = currentPath.join('/'); const newPath = basePath ? `${basePath}/${input}` : input;
 
             try {
                 const putHeaders = { ...getApiHeaders(), 'Content-Type': 'application/json' };
@@ -346,21 +400,15 @@
 
         async function loadDirectory() {
             showView('browser');
-            const owner = getStore('ghOwner');
-            const repo = getStore('ghRepo');
-            const token = getStore('ghToken');
-            const branch = getBranch();
-            const pathStr = currentPath.join('/');
-            
-            const hideAtt = getStore('hideAttachments') === 'true';
-            const onlyMd = getStore('onlyMd') === 'true';
+            const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const token = getStore('ghToken');
+            const branch = getBranch(); const pathStr = currentPath.join('/');
+            const hideAtt = getStore('hideAttachments') === 'true'; const onlyMd = getStore('onlyMd') === 'true';
             const listContainer = document.getElementById('file-list');
             listContainer.innerHTML = "<p>Loading...</p>";
 
             if(!owner || !repo || !token) {
                 listContainer.innerHTML = `<p style="color:var(--accent);">Missing credentials. Please check your settings.</p>`;
-                showView('settings');
-                return;
+                showView('settings'); return;
             }
 
             const url = `https://api.github.com/repos/${owner}/${repo}/contents/${pathStr}?ref=${branch}`;
@@ -369,45 +417,30 @@
                 const response = await fetch(url, { headers: getApiHeaders(), cache: 'no-store' });
                 if (!response.ok) {
                     if (response.status === 401) throw new Error("Invalid GitHub Token. Check Settings.");
-                    if (response.status === 404) {
-                        directoryData = []; renderFileList(directoryData); return; 
-                    }
+                    if (response.status === 404) { directoryData = []; renderFileList(directoryData); updateBreadcrumbs(false); updateUrl(false); return; }
                     throw new Error(`GitHub API Error: ${response.status}`);
                 }
                 
-                let data = await response.json();
-                if (!Array.isArray(data)) data = [data]; 
-
+                let data = await response.json(); if (!Array.isArray(data)) data = [data]; 
                 if (hideAtt) data = data.filter(item => !item.name.startsWith('Attachment-'));
                 if (onlyMd) data = data.filter(item => item.type === 'dir' || item.name.endsWith('.md'));
 
-                data.sort((a, b) => {
-                    if (a.type === b.type) return a.name.localeCompare(b.name);
-                    return a.type === 'dir' ? -1 : 1;
-                });
-
-                directoryData = data;
-                renderFileList(directoryData);
+                data.sort((a, b) => { if (a.type === b.type) return a.name.localeCompare(b.name); return a.type === 'dir' ? -1 : 1; });
+                directoryData = data; renderFileList(directoryData);
 
                 if (getStore('useHeadings') === 'true') fetchAndApplyHeadings(owner, repo, branch);
+                
+                updateBreadcrumbs(false); updateUrl(false);
             } catch (error) { listContainer.innerHTML = `<p style="color:var(--accent); font-weight:bold;">Error: ${error.message}</p>`; }
         }
 
         function renderFileList(dataToRender) {
-            const listContainer = document.getElementById('file-list');
-            listContainer.innerHTML = "";
-
-            if (dataToRender.length === 0) {
-                listContainer.innerHTML = "<p style='opacity:0.6; text-align:center; margin-top:30px;'>Folder is empty.</p>";
-                return;
-            }
+            const listContainer = document.getElementById('file-list'); listContainer.innerHTML = "";
+            if (dataToRender.length === 0) { listContainer.innerHTML = "<p style='opacity:0.6; text-align:center; margin-top:30px;'>Folder is empty.</p>"; return; }
 
             dataToRender.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'list-item';
-
-                const mainArea = document.createElement('div');
-                mainArea.className = 'item-main';
+                const div = document.createElement('div'); div.className = 'list-item';
+                const mainArea = document.createElement('div'); mainArea.className = 'item-main';
                 mainArea.innerHTML = `<span class="${item.type === 'dir' ? 'folder-icon' : 'file-icon'}"></span> <span id="title-${item.sha}">${item.name}</span>`;
                 mainArea.onclick = () => item.type === 'dir' ? navigateDown(item.name) : openFile(item.path);
 
@@ -419,20 +452,13 @@
                             <button onclick="event.stopPropagation(); shareFile('${item.path}')">Share Link</button>`;
                 
                 if (item.type === 'file') {
-                    menuHtml += `
-                            <button onclick="event.stopPropagation(); renameFile('${item.name}', '${item.path}', '${item.sha}')">Rename</button>
-                            <button onclick="event.stopPropagation(); deleteFile('${item.name}', '${item.path}', '${item.sha}')">Delete</button>`;
+                    menuHtml += `<button onclick="event.stopPropagation(); renameFile('${item.name}', '${item.path}', '${item.sha}')">Rename</button>
+                                 <button onclick="event.stopPropagation(); deleteFile('${item.name}', '${item.path}', '${item.sha}')">Delete</button>`;
                 } else if (item.type === 'dir') {
-                    menuHtml += `
-                            <button onclick="event.stopPropagation(); renameFolder('${item.name}', '${item.path}', '${item.sha}')">Rename</button>`;
+                    menuHtml += `<button onclick="event.stopPropagation(); renameFolder('${item.name}', '${item.path}', '${item.sha}')">Rename</button>`;
                 }
-                
                 menuHtml += `</div></div>`;
-                
-                actionsArea.innerHTML = menuHtml;
-                div.appendChild(mainArea); 
-                div.appendChild(actionsArea); 
-                listContainer.appendChild(div);
+                actionsArea.innerHTML = menuHtml; div.appendChild(mainArea); div.appendChild(actionsArea); listContainer.appendChild(div);
             });
         }
 
@@ -440,17 +466,10 @@
             for (let item of directoryData) {
                 if (item.type === 'file' && item.name.endsWith('.md')) {
                     try {
-                        const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${item.path}?ref=${branch}`, {
-                            headers: getApiHeaders(), cache: 'no-store'
-                        });
+                        const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${item.path}?ref=${branch}`, { headers: getApiHeaders(), cache: 'no-store' });
                         if (res.ok) {
-                            const data = await res.json();
-                            const text = decodeBase64UTF8(data.content);
-                            const match = text.match(/^#\s+(.+)/m);
-                            if (match) {
-                                const titleEl = document.getElementById(`title-${item.sha}`);
-                                if (titleEl) titleEl.innerText = match[1];
-                            }
+                            const data = await res.json(); const text = decodeBase64UTF8(data.content); const match = text.match(/^#\s+(.+)/m);
+                            if (match) { const titleEl = document.getElementById(`title-${item.sha}`); if (titleEl) titleEl.innerText = match[1]; }
                         }
                     } catch (e) {}
                 }
@@ -465,34 +484,22 @@
 
         function navigateDown(folderName) { currentPath.push(folderName); loadDirectory(); }
         function navigateUp() { currentPath.pop(); loadDirectory(); }
-        function goBack() {}
 
         async function openFile(filePath) {
-            const owner = getStore('ghOwner');
-            const repo = getStore('ghRepo');
-            const token = getStore('ghToken');
-            const branch = getBranch();
+            const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const token = getStore('ghToken'); const branch = getBranch();
             
             if (filePath.match(/\.(png|jpe?g|gif|webp|svg|mp4|webm|ogg|mp3|wav|m4a)$/i)) {
                 try {
                     const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`, {
-                        headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3.raw' },
-                        cache: 'no-store'
+                        headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3.raw' }, cache: 'no-store'
                     });
                     if (!response.ok) throw new Error('Media file not found or access denied.');
                     
                     const ext = filePath.split('.').pop().toLowerCase();
-                    const mimeTypes = { 
-                        'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 
-                        'webp': 'image/webp', 'svg': 'image/svg+xml', 'mp4': 'video/mp4', 'webm': 'video/webm', 
-                        'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'ogg': 'audio/ogg', 'm4a': 'audio/mp4' 
-                    };
+                    const mimeTypes = { 'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 'webp': 'image/webp', 'svg': 'image/svg+xml', 'mp4': 'video/mp4', 'webm': 'video/webm', 'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'ogg': 'audio/ogg', 'm4a': 'audio/mp4' };
                     
-                    const rawBlob = await response.blob();
-                    const properBlob = new Blob([rawBlob], { type: mimeTypes[ext] || 'application/octet-stream' });
-                    const url = URL.createObjectURL(properBlob);
-                    
-                    showMediaPreview(url, ext, filePath);
+                    const rawBlob = await response.blob(); const properBlob = new Blob([rawBlob], { type: mimeTypes[ext] || 'application/octet-stream' });
+                    const url = URL.createObjectURL(properBlob); showMediaPreview(url, ext, filePath);
                 } catch (e) { alert("Media error: " + e.message); }
                 return;
             }
@@ -504,101 +511,59 @@
                 const response = await fetch(url, { headers: getApiHeaders(), cache: 'no-store' });
                 if (!response.ok) throw new Error('File access denied or invalid credentials.');
 
-                const data = await response.json();
-                currentFileSha = data.sha;
-                
+                const data = await response.json(); currentFileSha = data.sha;
                 document.getElementById('markdown-editor').value = decodeBase64UTF8(data.content);
                 document.getElementById('filepath-input').value = currentFilePath;
                 
-                isEditMode = true; 
-                toggleMode();
-                showView('note');
+                isEditMode = true; toggleMode(); showView('note');
+                updateBreadcrumbs(true); updateUrl(true);
             } catch (error) { alert("Error opening file: " + error.message); }
         }
 
         function showMediaPreview(url, ext, filePath) {
             currentFilePath = filePath;
-            const container = document.getElementById('media-container');
-            container.innerHTML = '';
+            const container = document.getElementById('media-container'); container.innerHTML = '';
             
             if (['png','jpg','jpeg','gif','webp','svg'].includes(ext)) {
                 container.innerHTML = `<img id="preview-img" src="${url}" title="Double tap/click to open in new tab" style="max-width:100%; height:auto; border-radius:8px; max-height: 70vh; cursor:pointer;">`;
-                const imgEl = document.getElementById('preview-img');
-                setupDoubleTap(imgEl, () => {}, () => window.open(url, '_blank'));
-            } else if (['mp4','webm'].includes(ext)) {
-                container.innerHTML = `<video controls src="${url}" style="max-width:100%; max-height: 70vh; border-radius:8px;"></video>`;
-            } else if (['mp3','wav','ogg','m4a'].includes(ext)) {
-                container.innerHTML = `<audio controls src="${url}" style="width:100%; max-width: 500px;"></audio>`;
-            }
+                const imgEl = document.getElementById('preview-img'); setupDoubleTap(imgEl, () => {}, () => window.open(url, '_blank'));
+            } else if (['mp4','webm'].includes(ext)) { container.innerHTML = `<video controls src="${url}" style="max-width:100%; max-height: 70vh; border-radius:8px;"></video>`; } 
+            else if (['mp3','wav','ogg','m4a'].includes(ext)) { container.innerHTML = `<audio controls src="${url}" style="width:100%; max-width: 500px;"></audio>`; }
             
             const dlBtn = document.getElementById('media-download-btn');
-            dlBtn.onclick = () => {
-                const a = document.createElement('a');
-                a.href = url; a.download = filePath.split('/').pop();
-                a.click();
-            };
+            dlBtn.onclick = () => { const a = document.createElement('a'); a.href = url; a.download = filePath.split('/').pop(); a.click(); };
             
             showView('media');
+            updateBreadcrumbs(true); updateUrl(true);
         }
 
         async function loadAuthMedia(container) {
-            const owner = getStore('ghOwner');
-            const repo = getStore('ghRepo');
-            const token = getStore('ghToken');
-            const branch = getBranch();
-            
+            const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const token = getStore('ghToken'); const branch = getBranch();
             const mediaElements = container.querySelectorAll('.auth-media');
-            
             for (let el of mediaElements) {
-                const mediaPath = el.getAttribute('data-path');
-                if (!mediaPath) continue;
-                
+                const mediaPath = el.getAttribute('data-path'); if (!mediaPath) continue;
                 const url = `https://api.github.com/repos/${owner}/${repo}/contents/${mediaPath}?ref=${branch}`;
                 try {
-                    const response = await fetch(url, {
-                        headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3.raw' },
-                        cache: 'default'
-                    });
-                    
+                    const response = await fetch(url, { headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3.raw' }, cache: 'default' });
                     if (response.ok) {
                         const ext = mediaPath.split('.').pop().toLowerCase();
                         const mimeTypes = { 'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 'webp': 'image/webp', 'svg': 'image/svg+xml', 'mp4': 'video/mp4', 'webm': 'video/webm', 'm4a': 'audio/mp4'};
-                        
-                        const rawBlob = await response.blob();
-                        const blob = new Blob([rawBlob], { type: mimeTypes[ext] || 'application/octet-stream' });
-                        const objectUrl = URL.createObjectURL(blob);
-                        el.src = objectUrl;
-                        
-                        if (el.tagName === 'IMG') {
-                            el.style.cursor = 'pointer';
-                            el.title = "Tap to preview, double tap to open new tab";
-                            setupDoubleTap(el, 
-                                () => showMediaPreview(objectUrl, ext, mediaPath),
-                                () => window.open(objectUrl, '_blank')
-                            );
-                        }
-                    } else {
-                        if (el.tagName === 'IMG') el.alt = `Failed to load: ${mediaPath}`;
-                    }
+                        const rawBlob = await response.blob(); const blob = new Blob([rawBlob], { type: mimeTypes[ext] || 'application/octet-stream' });
+                        const objectUrl = URL.createObjectURL(blob); el.src = objectUrl;
+                        if (el.tagName === 'IMG') { el.style.cursor = 'pointer'; el.title = "Tap to preview, double tap to open new tab"; setupDoubleTap(el, () => showMediaPreview(objectUrl, ext, mediaPath), () => window.open(objectUrl, '_blank')); }
+                    } else { if (el.tagName === 'IMG') el.alt = `Failed to load: ${mediaPath}`; }
                 } catch (e) { console.error("Error fetching media:", e); }
             }
         }
 
         function toggleMode() {
             isEditMode = !isEditMode;
-            const viewer = document.getElementById('viewer-container');
-            const editor = document.getElementById('editor-container');
-            const toggleBtn = document.getElementById('toggle-btn');
-
-            if (isEditMode) {
-                viewer.style.display = 'none'; editor.style.display = 'block'; toggleBtn.innerText = 'Switch to View Mode';
-            } else {
+            const viewer = document.getElementById('viewer-container'); const editor = document.getElementById('editor-container'); const toggleBtn = document.getElementById('toggle-btn');
+            if (isEditMode) { viewer.style.display = 'none'; editor.style.display = 'block'; toggleBtn.innerText = 'Switch to View Mode'; } 
+            else {
                 const rawMarkdown = document.getElementById('markdown-editor').value;
-                const htmlOutput = marked.parse(rawMarkdown);
-                const sanitizedHtml = DOMPurify.sanitize(htmlOutput, sanitizeOptions);
-                
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = sanitizedHtml;
+                const htmlOutput = marked.parse(rawMarkdown); const sanitizedHtml = DOMPurify.sanitize(htmlOutput, sanitizeOptions);
+                const tempDiv = document.createElement('div'); tempDiv.innerHTML = sanitizedHtml;
                 
                 const allMedia = tempDiv.querySelectorAll('img, video, audio, source');
                 allMedia.forEach(el => {
@@ -606,226 +571,90 @@
                     if (src && !src.startsWith('http') && !src.startsWith('data:') && !src.startsWith('blob:')) {
                         let resolvedPath = src;
                         if (resolvedPath.startsWith('/')) resolvedPath = resolvedPath.substring(1);
-                        else {
-                            let basePath = currentPath.join('/');
-                            resolvedPath = basePath ? `${basePath}/${resolvedPath}` : resolvedPath;
-                        }
-                        el.removeAttribute('src'); 
-                        el.setAttribute('data-path', resolvedPath);
-                        el.classList.add('auth-media');
+                        else { let basePath = currentPath.join('/'); resolvedPath = basePath ? `${basePath}/${resolvedPath}` : resolvedPath; }
+                        el.removeAttribute('src'); el.setAttribute('data-path', resolvedPath); el.classList.add('auth-media');
                     }
                 });
                 
-                viewer.innerHTML = '';
-                viewer.appendChild(tempDiv);
-                loadAuthMedia(viewer); 
-                
+                viewer.innerHTML = ''; viewer.appendChild(tempDiv); loadAuthMedia(viewer); 
                 editor.style.display = 'none'; viewer.style.display = 'block'; toggleBtn.innerText = 'Switch to Edit Mode';
             }
         }
 
-        // Feature: Upload local markdown images to ImgBB (Bypasses 1MB file limit via Blob API + Optional Compression)
         async function uploadLocalImagesToImgBB() {
-            const imgbbKey = getStore('imgbbKey');
-            if (!imgbbKey) {
-                alert("Please add your ImgBB API Key in Settings first.");
-                showView('settings');
-                return;
-            }
+            const imgbbKey = getStore('imgbbKey'); if (!imgbbKey) { alert("Please add your ImgBB API Key in Settings first."); showView('settings'); return; }
+            const shouldCompress = getStore('compressImages') === 'true'; const editor = document.getElementById('markdown-editor'); let content = editor.value;
+            const imgRegex = /!\[([^\]]*)\]\(([^\)]+)\)/g; let matches = [...content.matchAll(imgRegex)];
+            let localMatches = matches.filter(m => { const url = m[2]; return !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('data:') && !url.startsWith('blob:'); });
 
-            const shouldCompress = getStore('compressImages') === 'true';
-            const editor = document.getElementById('markdown-editor');
-            let content = editor.value;
-            
-            // Regex matches ![alt text](/path/to/img)
-            const imgRegex = /!\[([^\]]*)\]\(([^\)]+)\)/g;
-            let matches = [...content.matchAll(imgRegex)];
-            
-            // Filter only local paths
-            let localMatches = matches.filter(m => {
-                const url = m[2];
-                return !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('data:') && !url.startsWith('blob:');
-            });
-
-            if (localMatches.length === 0) {
-                alert("No local images found in this note to upload.");
-                return;
-            }
-
+            if (localMatches.length === 0) { alert("No local images found in this note to upload."); return; }
             if (!confirm(`Found ${localMatches.length} local images. Upload them to ImgBB and replace their paths?`)) return;
 
-            const owner = getStore('ghOwner');
-            const repo = getStore('ghRepo');
-            const branch = getBranch();
-            
-            const btn = document.getElementById('imgbb-btn');
-            const originalBtnText = btn.innerText;
-
-            let successCount = 0;
-            let failCount = 0;
+            const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
+            const btn = document.getElementById('imgbb-btn'); const originalBtnText = btn.innerText;
+            let successCount = 0; let failCount = 0;
 
             for (let i = 0; i < localMatches.length; i++) {
                 btn.innerText = `Uploading ${i+1}/${localMatches.length}...`;
-                
-                const fullMatch = localMatches[i][0];
-                const altText = localMatches[i][1];
-                let imgPath = localMatches[i][2];
-                
-                // Decode just in case path has spaces like %20 natively in markdown
-                imgPath = decodeURIComponent(imgPath);
-
-                // Resolve path relative to current repo structure
+                const fullMatch = localMatches[i][0]; const altText = localMatches[i][1]; let imgPath = decodeURIComponent(localMatches[i][2]);
                 let resolvedPath = imgPath;
                 if (resolvedPath.startsWith('/')) resolvedPath = resolvedPath.substring(1);
-                else {
-                    let basePath = currentPath.join('/');
-                    resolvedPath = basePath ? `${basePath}/${resolvedPath}` : resolvedPath;
-                }
+                else { let basePath = currentPath.join('/'); resolvedPath = basePath ? `${basePath}/${resolvedPath}` : resolvedPath; }
 
                 try {
-                    // Extract directory and file name
-                    const parts = resolvedPath.split('/');
-                    let fileName = parts.pop();
-                    const dirPath = parts.join('/');
-                    
-                    // Fetch directory listing to safely get file SHA regardless of size limit
-                    let dirUrl = `https://api.github.com/repos/${owner}/${repo}/contents`;
-                    if (dirPath) {
-                        dirUrl += `/${dirPath.split('/').map(encodeURIComponent).join('/')}`;
-                    }
-                    dirUrl += `?ref=${branch}`;
-
+                    const parts = resolvedPath.split('/'); let fileName = parts.pop(); const dirPath = parts.join('/');
+                    let dirUrl = `https://api.github.com/repos/${owner}/${repo}/contents`; if (dirPath) { dirUrl += `/${dirPath.split('/').map(encodeURIComponent).join('/')}`; } dirUrl += `?ref=${branch}`;
                     const dirRes = await fetch(dirUrl, { headers: getApiHeaders(), cache: 'no-store' });
                     if (!dirRes.ok) throw new Error(`Could not fetch directory to find file: ${resolvedPath}`);
-                    
-                    const dirData = await dirRes.json();
-                    const fileMeta = dirData.find(f => f.name === fileName);
-                    
+                    const dirData = await dirRes.json(); const fileMeta = dirData.find(f => f.name === fileName);
                     if (!fileMeta) throw new Error(`File not found in GitHub directory: ${resolvedPath}`);
                     
-                    const fileSha = fileMeta.sha;
-                    
-                    // Fetch Blob directly using SHA (Supports files up to 100MB)
-                    const blobUrl = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${fileSha}`;
+                    const fileSha = fileMeta.sha; const blobUrl = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${fileSha}`;
                     const blobRes = await fetch(blobUrl, { headers: getApiHeaders(), cache: 'no-store' });
-                    
                     if (!blobRes.ok) throw new Error(`Failed to fetch blob for: ${resolvedPath}`);
-                    
-                    const blobData = await blobRes.json();
-                    let base64Content = blobData.content.replace(/\n/g, '');
+                    const blobData = await blobRes.json(); let base64Content = blobData.content.replace(/\n/g, '');
 
-                    // Apply Image Compression if Enabled
-                    if (shouldCompress) {
-                        try {
-                            btn.innerText = `Compressing ${i+1}/${localMatches.length}...`;
-                            base64Content = await compressBase64Image(base64Content, 0.75, 1920);
-                            
-                            // Adjust filename to .jpg since our compressor outputs JPEG
-                            fileName = fileName.replace(/\.[^/.]+$/, ".jpg");
-                        } catch (compErr) {
-                            console.warn("Compression failed, uploading original image instead:", compErr);
-                        }
-                    }
+                    if (shouldCompress) { try { btn.innerText = `Compressing ${i+1}/${localMatches.length}...`; base64Content = await compressBase64Image(base64Content, 0.75, 1920); fileName = fileName.replace(/\.[^/.]+$/, ".jpg"); } catch (compErr) { console.warn("Compression failed, uploading original image instead:", compErr); } }
 
-                    // Push to ImgBB
                     btn.innerText = `Sending ${i+1}/${localMatches.length}...`;
-                    const formData = new FormData();
-                    formData.append('key', imgbbKey);
-                    formData.append('image', base64Content);
-                    formData.append('name', fileName);
-
-                    const imgbbRes = await fetch('https://api.imgbb.com/1/upload', {
-                        method: 'POST', body: formData
-                    });
+                    const formData = new FormData(); formData.append('key', imgbbKey); formData.append('image', base64Content); formData.append('name', fileName);
+                    const imgbbRes = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
+                    if (!imgbbRes.ok) { const errRes = await imgbbRes.json(); throw new Error(`ImgBB API Error: ${errRes?.error?.message || "Upload Failed"}`); }
                     
-                    if (!imgbbRes.ok) {
-                        const errRes = await imgbbRes.json();
-                        throw new Error(`ImgBB API Error: ${errRes?.error?.message || "Upload Failed"}`);
-                    }
-                    
-                    const imgbbData = await imgbbRes.json();
-                    const newImgUrl = imgbbData.data.url;
-                    
-                    // Replace the old local syntax with the new ImgBB remote syntax
-                    const newMdImg = `![${altText}](${newImgUrl})`;
-                    content = content.replace(fullMatch, newMdImg);
-                    
-                    successCount++;
-                } catch (err) {
-                    console.error("Upload failed for:", imgPath, err);
-                    failCount++;
-                }
+                    const imgbbData = await imgbbRes.json(); const newImgUrl = imgbbData.data.url;
+                    const newMdImg = `![${altText}](${newImgUrl})`; content = content.replace(fullMatch, newMdImg); successCount++;
+                } catch (err) { console.error("Upload failed for:", imgPath, err); failCount++; }
             }
-
-            // Update editor and reset UI
-            editor.value = content;
-            btn.innerText = originalBtnText;
-            
-            alert(`Finished Migration!\n\nSuccessfully Uploaded: ${successCount}\nFailed: ${failCount}\n\nPlease click 'Save to GitHub' to preserve these changes.`);
-            
-            // Re-render preview if currently in View Mode
-            if (!isEditMode) {
-                toggleMode();
-                toggleMode();
-            }
+            editor.value = content; btn.innerText = originalBtnText; alert(`Finished Migration!\n\nSuccessfully Uploaded: ${successCount}\nFailed: ${failCount}\n\nPlease click 'Save to GitHub' to preserve these changes.`);
+            if (!isEditMode) { toggleMode(); toggleMode(); }
         }
 
         async function saveFile() {
-            const owner = getStore('ghOwner'); 
-            const repo = getStore('ghRepo');
-            const branch = getBranch();
-            const content = document.getElementById('markdown-editor').value;
-            const newFilePath = document.getElementById('filepath-input').value.trim();
-
+            const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
+            const content = document.getElementById('markdown-editor').value; const newFilePath = document.getElementById('filepath-input').value.trim();
             if (!newFilePath) return alert("File path cannot be empty.");
 
             try {
                 const putHeaders = { ...getApiHeaders(), 'Content-Type': 'application/json' };
-                
                 if (newFilePath !== currentFilePath) {
-                    const createRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${newFilePath}`, {
-                        method: 'PUT', headers: putHeaders,
-                        body: JSON.stringify({ message: `Create/Move to ${newFilePath}`, content: encodeBase64UTF8(content), branch: branch })
-                    });
+                    const createRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${newFilePath}`, { method: 'PUT', headers: putHeaders, body: JSON.stringify({ message: `Create/Move to ${newFilePath}`, content: encodeBase64UTF8(content), branch: branch }) });
                     if (!createRes.ok) throw new Error('Failed to save to the new path.');
                     const newData = await createRes.json();
-
-                    if (currentFileSha) {
-                        await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${currentFilePath}`, {
-                            method: 'DELETE', headers: putHeaders, 
-                            body: JSON.stringify({ message: `Delete old ${currentFilePath} after rename/move`, sha: currentFileSha, branch: branch })
-                        });
-                    }
-
-                    currentFilePath = newFilePath;
-                    currentFileSha = newData.content.sha;
-                    document.getElementById('nav-title').innerText = currentFilePath.split('/').pop();
-
+                    if (currentFileSha) { await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${currentFilePath}`, { method: 'DELETE', headers: putHeaders, body: JSON.stringify({ message: `Delete old ${currentFilePath} after rename/move`, sha: currentFileSha, branch: branch }) }); }
+                    currentFilePath = newFilePath; currentFileSha = newData.content.sha; document.getElementById('nav-title').innerText = currentFilePath.split('/').pop();
                 } else {
                     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${currentFilePath}`;
-                    const response = await fetch(url, {
-                        method: 'PUT', headers: putHeaders,
-                        body: JSON.stringify({ message: `Update ${currentFilePath}`, content: encodeBase64UTF8(content), sha: currentFileSha, branch: branch })
-                    });
+                    const response = await fetch(url, { method: 'PUT', headers: putHeaders, body: JSON.stringify({ message: `Update ${currentFilePath}`, content: encodeBase64UTF8(content), sha: currentFileSha, branch: branch }) });
                     if (!response.ok) throw new Error('Failed to save file.');
-                    const data = await response.json(); 
-                    currentFileSha = data.content.sha;
+                    const data = await response.json(); currentFileSha = data.content.sha;
                 }
-                
-                alert("Saved successfully!"); 
-                if (isEditMode) toggleMode();
-            } catch (error) { 
-                alert(error.message); 
-            }
+                alert("Saved successfully!"); if (isEditMode) toggleMode();
+            } catch (error) { alert(error.message); }
         }
 
         function shareFile(itemPath) {
-            const baseUrl = window.location.origin + window.location.pathname;
-            const shareUrl = `${baseUrl}?open=${encodeURIComponent(itemPath)}`;
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(shareUrl).then(() => {
-                    alert('Share link copied to clipboard:\n' + shareUrl);
-                }).catch(() => { prompt("Copy the share link below:", shareUrl); });
+            const baseUrl = window.location.origin + window.location.pathname; const shareUrl = `${baseUrl}?open=${encodeURIComponent(itemPath)}`;
+            if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(shareUrl).then(() => { alert('Share link copied to clipboard:\n' + shareUrl); }).catch(() => { prompt("Copy the share link below:", shareUrl); });
             } else { prompt("Copy the share link below:", shareUrl); }
         }
 
@@ -838,16 +667,10 @@
             try {
                 const getRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${itemPath}?ref=${branch}`, { headers: getApiHeaders(), cache: 'no-store' });
                 const fileData = await getRes.json();
-                
                 const putHeaders = { ...getApiHeaders(), 'Content-Type': 'application/json' };
-                const putRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${newPath}`, {
-                    method: 'PUT', headers: putHeaders, body: JSON.stringify({ message: `Rename ${itemName} to ${newName}`, content: fileData.content, branch: branch })
-                });
+                const putRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${newPath}`, { method: 'PUT', headers: putHeaders, body: JSON.stringify({ message: `Rename ${itemName} to ${newName}`, content: fileData.content, branch: branch }) });
                 if (!putRes.ok) throw new Error('Failed to create new file.');
-                
-                const delRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${itemPath}`, {
-                    method: 'DELETE', headers: putHeaders, body: JSON.stringify({ message: `Delete old ${itemName} after rename`, sha: fileData.sha, branch: branch })
-                });
+                const delRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${itemPath}`, { method: 'DELETE', headers: putHeaders, body: JSON.stringify({ message: `Delete old ${itemName} after rename`, sha: fileData.sha, branch: branch }) });
                 if (!delRes.ok) throw new Error('Failed to delete old file.');
                 loadDirectory();
             } catch (error) { alert(`Error renaming file: ${error.message}`); }
@@ -856,50 +679,32 @@
         async function renameFolder(oldName, oldPath, itemSha) {
             const newName = prompt("Enter new folder name:", oldName);
             if (!newName || newName === oldName) return;
-            
             const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
             const basePath = currentPath.join('/'); const newPath = basePath ? `${basePath}/${newName}` : newName;
 
             try {
                 let res = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`, { headers: getApiHeaders(), cache: 'no-store' });
                 if (!res.ok) throw new Error("Failed to fetch branch reference");
-                let refData = await res.json();
-                let latestCommitSha = refData.object.sha;
+                let refData = await res.json(); let latestCommitSha = refData.object.sha;
 
                 res = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/commits/${latestCommitSha}`, { headers: getApiHeaders(), cache: 'no-store' });
                 if (!res.ok) throw new Error("Failed to fetch commit data");
-                let commitData = await res.json();
-                let baseTreeSha = commitData.tree.sha;
+                let commitData = await res.json(); let baseTreeSha = commitData.tree.sha;
 
                 const postHeaders = { ...getApiHeaders(), 'Content-Type': 'application/json' };
-                const treePayload = {
-                    base_tree: baseTreeSha,
-                    tree: [
-                        { path: oldPath, mode: "040000", type: "tree", sha: null },
-                        { path: newPath, mode: "040000", type: "tree", sha: itemSha }
-                    ]
-                };
-                res = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees`, { 
-                    method: 'POST', headers: postHeaders, body: JSON.stringify(treePayload) 
-                });
+                const treePayload = { base_tree: baseTreeSha, tree: [ { path: oldPath, mode: "040000", type: "tree", sha: null }, { path: newPath, mode: "040000", type: "tree", sha: itemSha } ] };
+                res = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/trees`, { method: 'POST', headers: postHeaders, body: JSON.stringify(treePayload) });
                 if (!res.ok) throw new Error("Failed to build new directory tree");
-                let treeData = await res.json();
-                let newTreeSha = treeData.sha;
+                let treeData = await res.json(); let newTreeSha = treeData.sha;
 
                 const commitPayload = { message: `Rename folder ${oldName} to ${newName}`, tree: newTreeSha, parents: [latestCommitSha] };
-                res = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/commits`, { 
-                    method: 'POST', headers: postHeaders, body: JSON.stringify(commitPayload) 
-                });
+                res = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/commits`, { method: 'POST', headers: postHeaders, body: JSON.stringify(commitPayload) });
                 if (!res.ok) throw new Error("Failed to register commit");
-                let newCommitData = await res.json();
-                let newCommitSha = newCommitData.sha;
+                let newCommitData = await res.json(); let newCommitSha = newCommitData.sha;
 
                 const refPayload = { sha: newCommitSha, force: false };
-                res = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`, { 
-                    method: 'PATCH', headers: postHeaders, body: JSON.stringify(refPayload) 
-                });
+                res = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`, { method: 'PATCH', headers: postHeaders, body: JSON.stringify(refPayload) });
                 if (!res.ok) throw new Error("Failed to update branch reference");
-
                 loadDirectory();
             } catch (error) { alert(`Error renaming folder: ${error.message}`); }
         }
@@ -909,9 +714,7 @@
             const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
             try {
                 const delHeaders = { ...getApiHeaders(), 'Content-Type': 'application/json' };
-                const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${itemPath}`, {
-                    method: 'DELETE', headers: delHeaders, body: JSON.stringify({ message: `Delete ${itemName}`, sha: itemSha, branch: branch })
-                });
+                const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${itemPath}`, { method: 'DELETE', headers: delHeaders, body: JSON.stringify({ message: `Delete ${itemName}`, sha: itemSha, branch: branch }) });
                 if (!response.ok) throw new Error('Failed to delete file.');
                 loadDirectory();
             } catch (error) { alert(error.message); }
