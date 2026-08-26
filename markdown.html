@@ -151,6 +151,11 @@
         <div class="settings-form">
             <h3>Configuration</h3>
             <p style="opacity: 0.8; font-size: 14px; margin-top: 0;">Please enter your details to access your repository.</p>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-info" style="flex: 1;" onclick="exportSettings()">Export Config</button>
+                <button class="btn-success" style="flex: 1;" onclick="importSettings()">Import Config</button>
+            </div>
+
             <input type="password" id="gh-token" placeholder="GitHub PAT Token">
             <input type="text" id="gh-owner" placeholder="Repo Owner">
             <input type="text" id="gh-repo" placeholder="Repo Name">
@@ -185,10 +190,16 @@
 
     <!-- Note View -->
     <div id="view-note" class="view">
-        <div class="toolbar">
-            <button class="btn-primary" id="toggle-btn" onclick="toggleMode()">Edit Mode</button>
-            <button class="btn-success" onclick="saveFile()">Save to GitHub</button>
-            <button class="btn-info" id="imgbb-btn" onclick="uploadLocalImagesToImgBB()">Upload Images to ImgBB</button>
+        <div class="toolbar" style="justify-content: flex-end;">
+            <div class="menu-container" style="margin-left: auto;">
+                <button class="three-dots" title="Note Options" style="font-size: 24px;">⋮</button>
+                <div class="menu-options" style="right: 0; min-width: 150px;">
+                    <button id="toggle-btn" onclick="toggleMode()">Edit Mode</button>
+                    <button onclick="saveFile()">Save to GitHub</button>
+                    <button id="imgbb-btn" onclick="uploadLocalImagesToImgBB()">Upload Images to ImgBB</button>
+                    <button onclick="toggleFullscreen()">Fullscreen View</button>
+                </div>
+            </div>
         </div>
         <div id="viewer-container"></div>
         <div id="editor-container">
@@ -485,6 +496,57 @@
             setStore('useHeadings', document.getElementById('use-headings').checked);
             setStore('compressImages', document.getElementById('compress-images').checked);
             applyTheme(); currentPath = []; loadDirectory();
+        }
+
+        async function exportSettings() {
+            const config = {
+                ghToken: getStore('ghToken') || '',
+                ghOwner: getStore('ghOwner') || '',
+                ghRepo: getStore('ghRepo') || '',
+                ghBranch: getStore('ghBranch') || 'main',
+                imgbbKey: getStore('imgbbKey') || '',
+                theme: getStore('theme') || 'theme-dark',
+                hideAttachments: getStore('hideAttachments') === 'true',
+                onlyMd: getStore('onlyMd') === 'true',
+                useHeadings: getStore('useHeadings') === 'true',
+                compressImages: getStore('compressImages') === 'true'
+            };
+            const jsonStr = JSON.stringify(config);
+            await customPrompt("Copy your configuration below:", jsonStr);
+        }
+
+        async function importSettings() {
+            const jsonStr = await customPrompt("Paste your configuration JSON below:");
+            if (!jsonStr) return;
+            try {
+                const config = JSON.parse(jsonStr);
+                if (config.ghToken !== undefined) document.getElementById('gh-token').value = config.ghToken;
+                if (config.ghOwner !== undefined) document.getElementById('gh-owner').value = config.ghOwner;
+                if (config.ghRepo !== undefined) document.getElementById('gh-repo').value = config.ghRepo;
+                if (config.ghBranch !== undefined) document.getElementById('gh-branch').value = config.ghBranch;
+                if (config.imgbbKey !== undefined) document.getElementById('imgbb-key').value = config.imgbbKey;
+                if (config.theme !== undefined) document.getElementById('theme-select').value = config.theme;
+                if (config.hideAttachments !== undefined) document.getElementById('hide-attachments').checked = config.hideAttachments;
+                if (config.onlyMd !== undefined) document.getElementById('only-md').checked = config.onlyMd;
+                if (config.useHeadings !== undefined) document.getElementById('use-headings').checked = config.useHeadings;
+                if (config.compressImages !== undefined) document.getElementById('compress-images').checked = config.compressImages;
+                await customAlert("Configuration loaded successfully. Click 'Save & Browse' to apply.");
+            } catch (e) {
+                await customAlert("Invalid configuration JSON.");
+            }
+        }
+
+        function toggleFullscreen() {
+            const view = document.getElementById('view-note');
+            if (!document.fullscreenElement) {
+                if (view.requestFullscreen) { view.requestFullscreen(); }
+                else if (view.webkitRequestFullscreen) { view.webkitRequestFullscreen(); }
+                else if (view.msRequestFullscreen) { view.msRequestFullscreen(); }
+            } else {
+                if (document.exitFullscreen) { document.exitFullscreen(); }
+                else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
+                else if (document.msExitFullscreen) { document.msExitFullscreen(); }
+            }
         }
 
         function getApiHeaders() {
