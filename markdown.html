@@ -16,6 +16,11 @@
         body.theme-light { --bg-color: #f7f7f7; --text-color: #24292e; --panel-bg: #ffffff; --border-color: #e1e4e8; }
         body.theme-black { --bg-color: #000000; --text-color: #cccccc; --panel-bg: #0a0a0a; --border-color: #222222; }
 
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-color); color: var(--text-color);
@@ -23,8 +28,15 @@
             height: 100vh; transition: background-color 0.3s, color 0.3s;
         }
 
-        .navbar { background-color: var(--panel-bg); padding: 15px 20px; display: flex; align-items: center; border-bottom: 1px solid var(--border-color); }
-        .navbar button { background: none; border: none; color: var(--text-color); font-size: 18px; cursor: pointer; margin-left: 15px; }
+        .navbar {
+            background-color: var(--panel-bg); padding: 15px 20px; display: flex; align-items: center;
+            border-bottom: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: margin-top 0.3s ease-in-out, opacity 0.3s ease-in-out; position: sticky; top: 0; z-index: 100;
+        }
+        .navbar-hidden { margin-top: -65px; opacity: 0; pointer-events: none; }
+        .navbar button { background: none; border: none; color: var(--text-color); font-size: 18px; cursor: pointer; margin-left: 15px; transition: transform 0.2s, opacity 0.2s; }
+        .navbar button:hover { opacity: 0.8; transform: scale(1.1); }
+        .navbar button:active { transform: scale(0.95); }
         .navbar h2 { margin: 0; font-size: 18px; flex-grow: 1; font-weight: normal; }
 
         .breadcrumb {
@@ -39,16 +51,26 @@
         .active-view { display: block; }
         
         .settings-form { display: flex; flex-direction: column; gap: 15px; max-width: 400px; margin: auto; }
-        .settings-form input, .settings-form select { background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); padding: 10px; border-radius: 4px; }
+        .settings-form input, .settings-form select { background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-color); padding: 10px; border-radius: 6px; transition: border-color 0.3s, box-shadow 0.3s; }
+        .settings-form input:focus, .settings-form select:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(255, 82, 82, 0.2); }
         .settings-form label { display: flex; align-items: center; gap: 10px; }
         
-        .btn-primary { background: var(--accent); color: var(--btn-text); border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold;}
-        .btn-success { background: #2ea44f; color: #ffffff; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold;}
-        .btn-info { background: #1d9bf0; color: #ffffff; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold;}
+        button { transition: background-color 0.3s, transform 0.1s; }
+        button:active { transform: scale(0.98); }
+        .btn-primary { background: var(--accent); color: var(--btn-text); border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-primary:hover { filter: brightness(1.1); }
+        .btn-success { background: #2ea44f; color: #ffffff; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold;}
+        .btn-success:hover { background: #2c974b; }
+        .btn-info { background: #1d9bf0; color: #ffffff; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold;}
+        .btn-info:hover { background: #1a8cd8; }
+
+        .search-bar { width: 100%; padding: 12px; margin-bottom: 15px; box-sizing: border-box; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 8px; transition: border-color 0.3s, box-shadow 0.3s;}
+        .search-bar:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(255, 82, 82, 0.2); }
         
-        .search-bar { width: 100%; padding: 10px; margin-bottom: 15px; box-sizing: border-box; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 4px;}
-        .list-item { padding: 15px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-        .list-item:hover { background-color: var(--panel-bg); }
+        #file-list { background: var(--panel-bg); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; }
+        .list-item { padding: 15px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 10px; transition: background-color 0.2s; }
+        .list-item:last-child { border-bottom: none; }
+        .list-item:hover { background-color: var(--bg-color); }
         .item-main { display: flex; align-items: center; gap: 15px; cursor: pointer; flex-grow: 1; overflow: hidden; }
         
         .menu-container { position: relative; display: inline-block; }
@@ -69,19 +91,59 @@
         .toolbar { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
         #viewer-container, #editor-container {
             width: 100%; min-height: 70vh; background-color: var(--panel-bg);
-            border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; box-sizing: border-box; overflow-x: hidden;
+            border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; box-sizing: border-box; overflow-x: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         }
-        #editor-container { display: none; padding: 0; background: transparent; border: none;}
+
+        #view-note:fullscreen #viewer-container, #view-note:-webkit-full-screen #viewer-container { padding: 5px; border: none; box-shadow: none; border-radius: 0; min-height: 100vh; }
+        #view-note:fullscreen #editor-container, #view-note:-webkit-full-screen #editor-container { padding: 5px; border: none; box-shadow: none; border-radius: 0; min-height: 100vh; }
+        #view-note:fullscreen textarea, #view-note:-webkit-full-screen textarea { height: 95vh; }
+        #editor-container { display: none; padding: 0; background: transparent; border: none; box-shadow: none; }
         #editor-container .search-bar { margin-bottom: 10px; }
         textarea {
             width: 100%; height: 60vh; background: var(--panel-bg); color: var(--text-color);
-            border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; resize: none; font-family: monospace; font-size: 16px; outline: none; box-sizing: border-box;
+            border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; resize: none; font-family: monospace; font-size: 16px; outline: none; box-sizing: border-box; transition: border-color 0.3s, box-shadow 0.3s;
         }
+        textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(255, 82, 82, 0.2); }
         
         video, audio, img { max-width: 100%; border-radius: 4px; display: block; margin: 10px auto; }
+
+        /* Custom Modal Styles */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);
+            display: none; align-items: center; justify-content: center; z-index: 1000;
+        }
+        .modal-content {
+            background: var(--panel-bg); color: var(--text-color);
+            padding: 25px; border-radius: 8px; border: 1px solid var(--border-color);
+            min-width: 300px; max-width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            animation: slideDown 0.3s ease-out; display: flex; flex-direction: column; gap: 15px;
+        }
+        @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .modal-content p { margin: 0; line-height: 1.5; white-space: pre-wrap; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+        .modal-input {
+            width: 100%; padding: 10px; background: var(--bg-color); color: var(--text-color);
+            border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; display: none;
+        }
+        .modal-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(255, 82, 82, 0.2); }
+        .btn-cancel { background: transparent; color: var(--text-color); border: 1px solid var(--border-color); padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-cancel:hover { background: var(--bg-color); }
+
     </style>
 </head>
 <body>
+
+    <!-- Custom Modal Overlay -->
+    <div id="custom-modal" class="modal-overlay">
+        <div class="modal-content">
+            <p id="modal-message"></p>
+            <input type="text" id="modal-input" class="modal-input">
+            <div class="modal-actions" id="modal-actions">
+                <!-- Buttons will be injected here -->
+            </div>
+        </div>
+    </div>
 
     <div class="navbar">
         <button onclick="navigateUp()" id="back-btn" style="display: none; margin-left: 0; margin-right: 15px;">←</button>
@@ -98,6 +160,11 @@
         <div class="settings-form">
             <h3>Configuration</h3>
             <p style="opacity: 0.8; font-size: 14px; margin-top: 0;">Please enter your details to access your repository.</p>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-info" style="flex: 1;" onclick="exportSettings()">Export Config</button>
+                <button class="btn-success" style="flex: 1;" onclick="importSettings()">Import Config</button>
+            </div>
+
             <input type="password" id="gh-token" placeholder="GitHub PAT Token">
             <input type="text" id="gh-owner" placeholder="Repo Owner">
             <input type="text" id="gh-repo" placeholder="Repo Name">
@@ -107,14 +174,25 @@
             <input type="password" id="imgbb-key" placeholder="ImgBB API Key (Optional)">
             <label><input type="checkbox" id="compress-images"> Compress images before ImgBB upload</label>
 
-            <label style="margin-top: 10px;">
-                Theme:
-                <select id="theme-select">
-                    <option value="theme-dark">Dark Mode</option>
-                    <option value="theme-light">Light Mode</option>
-                    <option value="theme-black">AMOLED Black</option>
-                </select>
-            </label>
+            <div style="display: flex; gap: 15px; margin-top: 10px;">
+                <label style="flex: 1;">
+                    Theme:
+                    <select id="theme-select" style="width: 100%; margin-top: 5px;">
+                        <option value="theme-dark">Dark Mode</option>
+                        <option value="theme-light">Light Mode</option>
+                        <option value="theme-black">AMOLED Black</option>
+                    </select>
+                </label>
+                <label style="flex: 1;">
+                    Text Size:
+                    <select id="text-size-select" style="width: 100%; margin-top: 5px;">
+                        <option value="14px">Small</option>
+                        <option value="16px">Medium (Default)</option>
+                        <option value="18px">Large</option>
+                        <option value="20px">Extra Large</option>
+                    </select>
+                </label>
+            </div>
 
             <label><input type="checkbox" id="hide-attachments"> Hide "Attachment-..." items</label>
             <label><input type="checkbox" id="only-md"> Only show .md files</label>
@@ -131,12 +209,17 @@
     </div>
 
     <!-- Note View -->
-    <div id="view-note" class="view">
-        <div class="toolbar">
-            <button class="btn-primary" id="toggle-btn" onclick="toggleMode()">Edit Mode</button>
-            <button class="btn-success" onclick="saveFile()">Save to GitHub</button>
-            <button class="btn-info" id="imgbb-btn" onclick="uploadLocalImagesToImgBB()">Upload Images to ImgBB</button>
+    <div id="view-note" class="view" style="position: relative;">
+        <div class="menu-container" style="position: absolute; right: 30px; top: 30px; z-index: 50;">
+            <button class="three-dots" title="Note Options" style="font-size: 24px;">⋮</button>
+            <div class="menu-options" style="right: 0; min-width: 150px;">
+                <button id="toggle-btn" onclick="toggleMode()">Edit Mode</button>
+                <button onclick="saveFile()">Save to GitHub</button>
+                <button id="imgbb-btn" onclick="uploadLocalImagesToImgBB()">Upload Images to ImgBB</button>
+                <button onclick="toggleFullscreen()">Fullscreen View</button>
+            </div>
         </div>
+
         <div id="viewer-container"></div>
         <div id="editor-container">
             <input type="text" id="filepath-input" class="search-bar" placeholder="File path (e.g. folder/filename.md)">
@@ -163,6 +246,65 @@
         let currentFilePath = "";
         let isEditMode = false;
         let directoryData = [];
+
+        // Custom Modal Logic
+        function showCustomModal(message, type, defaultValue = "") {
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('custom-modal');
+                const msgEl = document.getElementById('modal-message');
+                const inputEl = document.getElementById('modal-input');
+                const actionsEl = document.getElementById('modal-actions');
+
+                msgEl.innerText = message;
+                actionsEl.innerHTML = '';
+                inputEl.style.display = 'none';
+                inputEl.value = defaultValue;
+
+                const close = (value) => {
+                    overlay.style.display = 'none';
+                    resolve(value);
+                };
+
+                if (type === 'alert') {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn-primary'; btn.innerText = 'OK';
+                    btn.onclick = () => close(true);
+                    actionsEl.appendChild(btn);
+                    setTimeout(() => btn.focus(), 10);
+                } else if (type === 'confirm') {
+                    const btnCancel = document.createElement('button');
+                    btnCancel.className = 'btn-cancel'; btnCancel.innerText = 'Cancel';
+                    btnCancel.onclick = () => close(false);
+
+                    const btnOk = document.createElement('button');
+                    btnOk.className = 'btn-primary'; btnOk.innerText = 'OK';
+                    btnOk.onclick = () => close(true);
+
+                    actionsEl.appendChild(btnCancel); actionsEl.appendChild(btnOk);
+                    setTimeout(() => btnOk.focus(), 10);
+                } else if (type === 'prompt') {
+                    inputEl.style.display = 'block';
+                    const btnCancel = document.createElement('button');
+                    btnCancel.className = 'btn-cancel'; btnCancel.innerText = 'Cancel';
+                    btnCancel.onclick = () => close(null);
+
+                    const btnOk = document.createElement('button');
+                    btnOk.className = 'btn-primary'; btnOk.innerText = 'OK';
+                    btnOk.onclick = () => close(inputEl.value);
+
+                    inputEl.onkeydown = (e) => { if (e.key === 'Enter') btnOk.click(); if (e.key === 'Escape') btnCancel.click(); };
+
+                    actionsEl.appendChild(btnCancel); actionsEl.appendChild(btnOk);
+                    setTimeout(() => { inputEl.focus(); inputEl.select(); }, 10);
+                }
+
+                overlay.style.display = 'flex';
+            });
+        }
+
+        async function customAlert(msg) { return await showCustomModal(msg, 'alert'); }
+        async function customConfirm(msg) { return await showCustomModal(msg, 'confirm'); }
+        async function customPrompt(msg, def) { return await showCustomModal(msg, 'prompt', def); }
 
         function setupDoubleTap(element, singleClickCb, doubleClickCb) {
             let clickTimer = null;
@@ -192,14 +334,14 @@
             let href = typeof token === 'object' ? token.href : arguments[0];
             let title = (typeof token === 'object' ? token.title : arguments[1]) || '';
             let text = (typeof token === 'object' ? token.text : arguments[2]) || '';
-            return `<img src="${href || ''}" alt="${text}" title="${title}" />`;
+            return `<a href="${href || ''}" target="_blank" rel="noopener noreferrer"><img src="${href || ''}" alt="${text}" title="${title}" style="cursor: pointer;" /></a>`;
         };
 
         marked.setOptions({ renderer: renderer, gfm: true, breaks: true });
 
         const sanitizeOptions = {
-            ADD_TAGS: ['video', 'audio', 'source', 'track', 'iframe', 'div', 'span', 'details', 'summary', 'kbd', 'br', 'hr', 'table', 'tr', 'td', 'th', 'thead', 'tbody'],
-            ADD_ATTR: ['target', 'style', 'src', 'controls', 'autoplay', 'loop', 'muted', 'allow', 'allowfullscreen', 'frameborder', 'data-path', 'class', 'id', 'type', 'width', 'height']
+            ADD_TAGS: ['video', 'audio', 'source', 'track', 'iframe', 'div', 'span', 'details', 'summary', 'kbd', 'br', 'hr', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'style', 'font', 'center', 'strike', 'u', 'mark', 'sub', 'sup', 'abbr', 'b', 'i', 'strong', 'em', 'del', 'ins'],
+            ADD_ATTR: ['target', 'style', 'src', 'controls', 'autoplay', 'loop', 'muted', 'allow', 'allowfullscreen', 'frameborder', 'data-path', 'class', 'id', 'type', 'width', 'height', 'align', 'valign', 'color', 'bgcolor', 'border']
         };
 
         const decodeBase64UTF8 = (base64) => {
@@ -231,8 +373,25 @@
             });
         }
 
-        window.onload = () => {
+        window.onload = async () => {
+
+            let lastScrollTop = 0;
+            const viewContainers = document.querySelectorAll('.view');
+            viewContainers.forEach(container => {
+                container.addEventListener('scroll', function() {
+                    let scrollTop = this.scrollTop;
+                    const navbar = document.querySelector('.navbar');
+                    if (scrollTop > lastScrollTop && scrollTop > 50) {
+                        navbar.classList.add('navbar-hidden');
+                    } else {
+                        navbar.classList.remove('navbar-hidden');
+                    }
+                    lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
+                });
+            });
+
             document.getElementById('theme-select').value = getStore('theme') || 'theme-dark';
+            document.getElementById('text-size-select').value = getStore('textSize') || '16px';
             document.getElementById('hide-attachments').checked = getStore('hideAttachments') === 'true';
             document.getElementById('only-md').checked = getStore('onlyMd') === 'true';
             document.getElementById('use-headings').checked = getStore('useHeadings') === 'true';
@@ -264,7 +423,7 @@
                     }
                     return;
                 } else {
-                    alert("Please enter your GitHub credentials in settings first to view this shared link.");
+                    await customAlert("Please enter your GitHub credentials in settings first to view this shared link.");
                     showView('settings');
                     return;
                 }
@@ -283,7 +442,10 @@
 
         window.addEventListener('popstate', (event) => { window.location.reload(); });
 
-        function applyTheme() { document.body.className = document.getElementById('theme-select').value; }
+        function applyTheme() {
+            document.body.className = document.getElementById('theme-select').value;
+            document.body.style.fontSize = document.getElementById('text-size-select').value;
+        }
 
         function updateUrl(isFile = false) {
             const url = new URL(window.location);
@@ -368,11 +530,65 @@
             setStore('ghBranch', document.getElementById('gh-branch').value.trim() || 'main');
             setStore('imgbbKey', document.getElementById('imgbb-key').value.trim());
             setStore('theme', document.getElementById('theme-select').value);
+            setStore('textSize', document.getElementById('text-size-select').value);
             setStore('hideAttachments', document.getElementById('hide-attachments').checked);
             setStore('onlyMd', document.getElementById('only-md').checked);
             setStore('useHeadings', document.getElementById('use-headings').checked);
             setStore('compressImages', document.getElementById('compress-images').checked);
             applyTheme(); currentPath = []; loadDirectory();
+        }
+
+        async function exportSettings() {
+            const config = {
+                ghToken: getStore('ghToken') || '',
+                ghOwner: getStore('ghOwner') || '',
+                ghRepo: getStore('ghRepo') || '',
+                ghBranch: getStore('ghBranch') || 'main',
+                imgbbKey: getStore('imgbbKey') || '',
+                theme: getStore('theme') || 'theme-dark',
+                textSize: getStore('textSize') || '16px',
+                hideAttachments: getStore('hideAttachments') === 'true',
+                onlyMd: getStore('onlyMd') === 'true',
+                useHeadings: getStore('useHeadings') === 'true',
+                compressImages: getStore('compressImages') === 'true'
+            };
+            const jsonStr = JSON.stringify(config);
+            await customPrompt("Copy your configuration below:", jsonStr);
+        }
+
+        async function importSettings() {
+            const jsonStr = await customPrompt("Paste your configuration JSON below:");
+            if (!jsonStr) return;
+            try {
+                const config = JSON.parse(jsonStr);
+                if (config.ghToken !== undefined) document.getElementById('gh-token').value = config.ghToken;
+                if (config.ghOwner !== undefined) document.getElementById('gh-owner').value = config.ghOwner;
+                if (config.ghRepo !== undefined) document.getElementById('gh-repo').value = config.ghRepo;
+                if (config.ghBranch !== undefined) document.getElementById('gh-branch').value = config.ghBranch;
+                if (config.imgbbKey !== undefined) document.getElementById('imgbb-key').value = config.imgbbKey;
+                if (config.theme !== undefined) document.getElementById('theme-select').value = config.theme;
+                if (config.textSize !== undefined) document.getElementById('text-size-select').value = config.textSize;
+                if (config.hideAttachments !== undefined) document.getElementById('hide-attachments').checked = config.hideAttachments;
+                if (config.onlyMd !== undefined) document.getElementById('only-md').checked = config.onlyMd;
+                if (config.useHeadings !== undefined) document.getElementById('use-headings').checked = config.useHeadings;
+                if (config.compressImages !== undefined) document.getElementById('compress-images').checked = config.compressImages;
+                await customAlert("Configuration loaded successfully. Click 'Save & Browse' to apply.");
+            } catch (e) {
+                await customAlert("Invalid configuration JSON.");
+            }
+        }
+
+        function toggleFullscreen() {
+            const view = document.getElementById('view-note');
+            if (!document.fullscreenElement) {
+                if (view.requestFullscreen) { view.requestFullscreen(); }
+                else if (view.webkitRequestFullscreen) { view.webkitRequestFullscreen(); }
+                else if (view.msRequestFullscreen) { view.msRequestFullscreen(); }
+            } else {
+                if (document.exitFullscreen) { document.exitFullscreen(); }
+                else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
+                else if (document.msExitFullscreen) { document.msExitFullscreen(); }
+            }
         }
 
         function getApiHeaders() {
@@ -382,7 +598,7 @@
         }
 
         async function createNewItem() {
-            const input = prompt("Enter file name (e.g., 'notes.md').\nTo create a folder, add a file inside it:");
+            const input = await customPrompt("Enter file name (e.g., 'notes.md').\nTo create a folder, add a file inside it:");
             if (!input) return;
             const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
             const basePath = currentPath.join('/'); const newPath = basePath ? `${basePath}/${input}` : input;
@@ -395,7 +611,7 @@
                 });
                 if (!response.ok) throw new Error('Failed to create file/folder.');
                 loadDirectory();
-            } catch (error) { alert(`Error: ${error.message}`); }
+            } catch (error) { await customAlert(`Error: ${error.message}`); }
         }
 
         async function loadDirectory() {
@@ -500,7 +716,7 @@
                     
                     const rawBlob = await response.blob(); const properBlob = new Blob([rawBlob], { type: mimeTypes[ext] || 'application/octet-stream' });
                     const url = URL.createObjectURL(properBlob); showMediaPreview(url, ext, filePath);
-                } catch (e) { alert("Media error: " + e.message); }
+                } catch (e) { await customAlert("Media error: " + e.message); }
                 return;
             }
 
@@ -517,7 +733,7 @@
                 
                 isEditMode = true; toggleMode(); showView('note');
                 updateBreadcrumbs(true); updateUrl(true);
-            } catch (error) { alert("Error opening file: " + error.message); }
+            } catch (error) { await customAlert("Error opening file: " + error.message); }
         }
 
         function showMediaPreview(url, ext, filePath) {
@@ -582,13 +798,13 @@
         }
 
         async function uploadLocalImagesToImgBB() {
-            const imgbbKey = getStore('imgbbKey'); if (!imgbbKey) { alert("Please add your ImgBB API Key in Settings first."); showView('settings'); return; }
+            const imgbbKey = getStore('imgbbKey'); if (!imgbbKey) { await customAlert("Please add your ImgBB API Key in Settings first."); showView('settings'); return; }
             const shouldCompress = getStore('compressImages') === 'true'; const editor = document.getElementById('markdown-editor'); let content = editor.value;
             const imgRegex = /!\[([^\]]*)\]\(([^\)]+)\)/g; let matches = [...content.matchAll(imgRegex)];
             let localMatches = matches.filter(m => { const url = m[2]; return !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('data:') && !url.startsWith('blob:'); });
 
-            if (localMatches.length === 0) { alert("No local images found in this note to upload."); return; }
-            if (!confirm(`Found ${localMatches.length} local images. Upload them to ImgBB and replace their paths?`)) return;
+            if (localMatches.length === 0) { await customAlert("No local images found in this note to upload."); return; }
+            if (!await customConfirm(`Found ${localMatches.length} local images. Upload them to ImgBB and replace their paths?`)) return;
 
             const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
             const btn = document.getElementById('imgbb-btn'); const originalBtnText = btn.innerText;
@@ -625,14 +841,14 @@
                     const newMdImg = `![${altText}](${newImgUrl})`; content = content.replace(fullMatch, newMdImg); successCount++;
                 } catch (err) { console.error("Upload failed for:", imgPath, err); failCount++; }
             }
-            editor.value = content; btn.innerText = originalBtnText; alert(`Finished Migration!\n\nSuccessfully Uploaded: ${successCount}\nFailed: ${failCount}\n\nPlease click 'Save to GitHub' to preserve these changes.`);
+            editor.value = content; btn.innerText = originalBtnText; await customAlert(`Finished Migration!\n\nSuccessfully Uploaded: ${successCount}\nFailed: ${failCount}\n\nPlease click 'Save to GitHub' to preserve these changes.`);
             if (!isEditMode) { toggleMode(); toggleMode(); }
         }
 
         async function saveFile() {
             const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
             const content = document.getElementById('markdown-editor').value; const newFilePath = document.getElementById('filepath-input').value.trim();
-            if (!newFilePath) return alert("File path cannot be empty.");
+            if (!newFilePath) return await customAlert("File path cannot be empty.");
 
             try {
                 const putHeaders = { ...getApiHeaders(), 'Content-Type': 'application/json' };
@@ -648,18 +864,18 @@
                     if (!response.ok) throw new Error('Failed to save file.');
                     const data = await response.json(); currentFileSha = data.content.sha;
                 }
-                alert("Saved successfully!"); if (isEditMode) toggleMode();
-            } catch (error) { alert(error.message); }
+                await customAlert("Saved successfully!"); if (isEditMode) toggleMode();
+            } catch (error) { await customAlert(error.message); }
         }
 
-        function shareFile(itemPath) {
+        async function shareFile(itemPath) {
             const baseUrl = window.location.origin + window.location.pathname; const shareUrl = `${baseUrl}?open=${encodeURIComponent(itemPath)}`;
-            if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(shareUrl).then(() => { alert('Share link copied to clipboard:\n' + shareUrl); }).catch(() => { prompt("Copy the share link below:", shareUrl); });
-            } else { prompt("Copy the share link below:", shareUrl); }
+            if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(shareUrl).then(async () => { await customAlert('Share link copied to clipboard:\n' + shareUrl); }).catch(async () => { await customPrompt("Copy the share link below:", shareUrl); });
+            } else { await customPrompt("Copy the share link below:", shareUrl); }
         }
 
         async function renameFile(itemName, itemPath, itemSha) {
-            const newName = prompt("Enter new filename (include extension, e.g., .md):", itemName);
+            const newName = await customPrompt("Enter new filename (include extension, e.g., .md):", itemName);
             if (!newName || newName === itemName) return;
             const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
             const basePath = currentPath.join('/'); const newPath = basePath ? `${basePath}/${newName}` : newName;
@@ -673,11 +889,11 @@
                 const delRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${itemPath}`, { method: 'DELETE', headers: putHeaders, body: JSON.stringify({ message: `Delete old ${itemName} after rename`, sha: fileData.sha, branch: branch }) });
                 if (!delRes.ok) throw new Error('Failed to delete old file.');
                 loadDirectory();
-            } catch (error) { alert(`Error renaming file: ${error.message}`); }
+            } catch (error) { await customAlert(`Error renaming file: ${error.message}`); }
         }
 
         async function renameFolder(oldName, oldPath, itemSha) {
-            const newName = prompt("Enter new folder name:", oldName);
+            const newName = await customPrompt("Enter new folder name:", oldName);
             if (!newName || newName === oldName) return;
             const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
             const basePath = currentPath.join('/'); const newPath = basePath ? `${basePath}/${newName}` : newName;
@@ -706,18 +922,18 @@
                 res = await fetch(`https://api.github.com/repos/${owner}/${repo}/git/refs/heads/${branch}`, { method: 'PATCH', headers: postHeaders, body: JSON.stringify(refPayload) });
                 if (!res.ok) throw new Error("Failed to update branch reference");
                 loadDirectory();
-            } catch (error) { alert(`Error renaming folder: ${error.message}`); }
+            } catch (error) { await customAlert(`Error renaming folder: ${error.message}`); }
         }
 
         async function deleteFile(itemName, itemPath, itemSha) {
-            if (!confirm(`Are you sure you want to delete ${itemName}? This cannot be undone.`)) return;
+            if (!await customConfirm(`Are you sure you want to delete ${itemName}? This cannot be undone.`)) return;
             const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
             try {
                 const delHeaders = { ...getApiHeaders(), 'Content-Type': 'application/json' };
                 const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${itemPath}`, { method: 'DELETE', headers: delHeaders, body: JSON.stringify({ message: `Delete ${itemName}`, sha: itemSha, branch: branch }) });
                 if (!response.ok) throw new Error('Failed to delete file.');
                 loadDirectory();
-            } catch (error) { alert(error.message); }
+            } catch (error) { await customAlert(error.message); }
         }
     </script>
 </body>
