@@ -28,7 +28,12 @@
             height: 100vh; transition: background-color 0.3s, color 0.3s;
         }
 
-        .navbar { background-color: var(--panel-bg); padding: 15px 20px; display: flex; align-items: center; border-bottom: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .navbar {
+            background-color: var(--panel-bg); padding: 15px 20px; display: flex; align-items: center;
+            border-bottom: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: margin-top 0.3s ease-in-out, opacity 0.3s ease-in-out; position: sticky; top: 0; z-index: 100;
+        }
+        .navbar-hidden { margin-top: -65px; opacity: 0; pointer-events: none; }
         .navbar button { background: none; border: none; color: var(--text-color); font-size: 18px; cursor: pointer; margin-left: 15px; transition: transform 0.2s, opacity 0.2s; }
         .navbar button:hover { opacity: 0.8; transform: scale(1.1); }
         .navbar button:active { transform: scale(0.95); }
@@ -86,8 +91,12 @@
         .toolbar { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
         #viewer-container, #editor-container {
             width: 100%; min-height: 70vh; background-color: var(--panel-bg);
-            border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; box-sizing: border-box; overflow-x: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; box-sizing: border-box; overflow-x: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         }
+
+        #view-note:fullscreen #viewer-container, #view-note:-webkit-full-screen #viewer-container { padding: 5px; border: none; box-shadow: none; border-radius: 0; min-height: 100vh; }
+        #view-note:fullscreen #editor-container, #view-note:-webkit-full-screen #editor-container { padding: 5px; border: none; box-shadow: none; border-radius: 0; min-height: 100vh; }
+        #view-note:fullscreen textarea, #view-note:-webkit-full-screen textarea { height: 95vh; }
         #editor-container { display: none; padding: 0; background: transparent; border: none; box-shadow: none; }
         #editor-container .search-bar { margin-bottom: 10px; }
         textarea {
@@ -165,14 +174,25 @@
             <input type="password" id="imgbb-key" placeholder="ImgBB API Key (Optional)">
             <label><input type="checkbox" id="compress-images"> Compress images before ImgBB upload</label>
 
-            <label style="margin-top: 10px;">
-                Theme:
-                <select id="theme-select">
-                    <option value="theme-dark">Dark Mode</option>
-                    <option value="theme-light">Light Mode</option>
-                    <option value="theme-black">AMOLED Black</option>
-                </select>
-            </label>
+            <div style="display: flex; gap: 15px; margin-top: 10px;">
+                <label style="flex: 1;">
+                    Theme:
+                    <select id="theme-select" style="width: 100%; margin-top: 5px;">
+                        <option value="theme-dark">Dark Mode</option>
+                        <option value="theme-light">Light Mode</option>
+                        <option value="theme-black">AMOLED Black</option>
+                    </select>
+                </label>
+                <label style="flex: 1;">
+                    Text Size:
+                    <select id="text-size-select" style="width: 100%; margin-top: 5px;">
+                        <option value="14px">Small</option>
+                        <option value="16px">Medium (Default)</option>
+                        <option value="18px">Large</option>
+                        <option value="20px">Extra Large</option>
+                    </select>
+                </label>
+            </div>
 
             <label><input type="checkbox" id="hide-attachments"> Hide "Attachment-..." items</label>
             <label><input type="checkbox" id="only-md"> Only show .md files</label>
@@ -189,18 +209,17 @@
     </div>
 
     <!-- Note View -->
-    <div id="view-note" class="view">
-        <div class="toolbar" style="justify-content: flex-end;">
-            <div class="menu-container" style="margin-left: auto;">
-                <button class="three-dots" title="Note Options" style="font-size: 24px;">⋮</button>
-                <div class="menu-options" style="right: 0; min-width: 150px;">
-                    <button id="toggle-btn" onclick="toggleMode()">Edit Mode</button>
-                    <button onclick="saveFile()">Save to GitHub</button>
-                    <button id="imgbb-btn" onclick="uploadLocalImagesToImgBB()">Upload Images to ImgBB</button>
-                    <button onclick="toggleFullscreen()">Fullscreen View</button>
-                </div>
+    <div id="view-note" class="view" style="position: relative;">
+        <div class="menu-container" style="position: absolute; right: 30px; top: 30px; z-index: 50;">
+            <button class="three-dots" title="Note Options" style="font-size: 24px;">⋮</button>
+            <div class="menu-options" style="right: 0; min-width: 150px;">
+                <button id="toggle-btn" onclick="toggleMode()">Edit Mode</button>
+                <button onclick="saveFile()">Save to GitHub</button>
+                <button id="imgbb-btn" onclick="uploadLocalImagesToImgBB()">Upload Images to ImgBB</button>
+                <button onclick="toggleFullscreen()">Fullscreen View</button>
             </div>
         </div>
+
         <div id="viewer-container"></div>
         <div id="editor-container">
             <input type="text" id="filepath-input" class="search-bar" placeholder="File path (e.g. folder/filename.md)">
@@ -315,7 +334,7 @@
             let href = typeof token === 'object' ? token.href : arguments[0];
             let title = (typeof token === 'object' ? token.title : arguments[1]) || '';
             let text = (typeof token === 'object' ? token.text : arguments[2]) || '';
-            return `<img src="${href || ''}" alt="${text}" title="${title}" />`;
+            return `<a href="${href || ''}" target="_blank" rel="noopener noreferrer"><img src="${href || ''}" alt="${text}" title="${title}" style="cursor: pointer;" /></a>`;
         };
 
         marked.setOptions({ renderer: renderer, gfm: true, breaks: true });
@@ -355,7 +374,24 @@
         }
 
         window.onload = async () => {
+
+            let lastScrollTop = 0;
+            const viewContainers = document.querySelectorAll('.view');
+            viewContainers.forEach(container => {
+                container.addEventListener('scroll', function() {
+                    let scrollTop = this.scrollTop;
+                    const navbar = document.querySelector('.navbar');
+                    if (scrollTop > lastScrollTop && scrollTop > 50) {
+                        navbar.classList.add('navbar-hidden');
+                    } else {
+                        navbar.classList.remove('navbar-hidden');
+                    }
+                    lastScrollTop = scrollTop <= 0 ? 0 : scrollTop;
+                });
+            });
+
             document.getElementById('theme-select').value = getStore('theme') || 'theme-dark';
+            document.getElementById('text-size-select').value = getStore('textSize') || '16px';
             document.getElementById('hide-attachments').checked = getStore('hideAttachments') === 'true';
             document.getElementById('only-md').checked = getStore('onlyMd') === 'true';
             document.getElementById('use-headings').checked = getStore('useHeadings') === 'true';
@@ -406,7 +442,10 @@
 
         window.addEventListener('popstate', (event) => { window.location.reload(); });
 
-        function applyTheme() { document.body.className = document.getElementById('theme-select').value; }
+        function applyTheme() {
+            document.body.className = document.getElementById('theme-select').value;
+            document.body.style.fontSize = document.getElementById('text-size-select').value;
+        }
 
         function updateUrl(isFile = false) {
             const url = new URL(window.location);
@@ -491,6 +530,7 @@
             setStore('ghBranch', document.getElementById('gh-branch').value.trim() || 'main');
             setStore('imgbbKey', document.getElementById('imgbb-key').value.trim());
             setStore('theme', document.getElementById('theme-select').value);
+            setStore('textSize', document.getElementById('text-size-select').value);
             setStore('hideAttachments', document.getElementById('hide-attachments').checked);
             setStore('onlyMd', document.getElementById('only-md').checked);
             setStore('useHeadings', document.getElementById('use-headings').checked);
@@ -506,6 +546,7 @@
                 ghBranch: getStore('ghBranch') || 'main',
                 imgbbKey: getStore('imgbbKey') || '',
                 theme: getStore('theme') || 'theme-dark',
+                textSize: getStore('textSize') || '16px',
                 hideAttachments: getStore('hideAttachments') === 'true',
                 onlyMd: getStore('onlyMd') === 'true',
                 useHeadings: getStore('useHeadings') === 'true',
@@ -526,6 +567,7 @@
                 if (config.ghBranch !== undefined) document.getElementById('gh-branch').value = config.ghBranch;
                 if (config.imgbbKey !== undefined) document.getElementById('imgbb-key').value = config.imgbbKey;
                 if (config.theme !== undefined) document.getElementById('theme-select').value = config.theme;
+                if (config.textSize !== undefined) document.getElementById('text-size-select').value = config.textSize;
                 if (config.hideAttachments !== undefined) document.getElementById('hide-attachments').checked = config.hideAttachments;
                 if (config.onlyMd !== undefined) document.getElementById('only-md').checked = config.onlyMd;
                 if (config.useHeadings !== undefined) document.getElementById('use-headings').checked = config.useHeadings;
