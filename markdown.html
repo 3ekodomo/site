@@ -134,6 +134,23 @@
 </head>
 <body>
 
+
+    <!-- ImgBB Upload Modal -->
+    <div id="imgbb-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 800px; width: 90%;">
+            <h3>Upload to ImgBB</h3>
+            <div id="imgbb-loading" style="text-align: center; padding: 20px;">Fetching and compressing previews...</div>
+            <div id="imgbb-preview-list" style="max-height: 50vh; overflow-y: auto; display: none; flex-direction: column; gap: 15px;"></div>
+            <label style="margin-top: 15px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="imgbb-compress-checkbox" style="width: auto;"> Compress images before upload
+            </label>
+            <div class="modal-actions" style="margin-top: 15px;">
+                <button class="btn-cancel" onclick="closeImgbbModal()">Cancel</button>
+                <button class="btn-primary" id="imgbb-confirm-btn" onclick="executeImgbbUpload()">Upload</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Custom Modal Overlay -->
     <div id="custom-modal" class="modal-overlay">
         <div class="modal-content">
@@ -797,21 +814,41 @@
             }
         }
 
+
+        let imgbbUploadQueue = [];
+
+        function closeImgbbModal() {
+            document.getElementById('imgbb-modal').style.display = 'none';
+        }
+
         async function uploadLocalImagesToImgBB() {
             const imgbbKey = getStore('imgbbKey'); if (!imgbbKey) { await customAlert("Please add your ImgBB API Key in Settings first."); showView('settings'); return; }
-            const shouldCompress = getStore('compressImages') === 'true'; const editor = document.getElementById('markdown-editor'); let content = editor.value;
+
+            const editor = document.getElementById('markdown-editor'); let content = editor.value;
             const imgRegex = /!\[([^\]]*)\]\(([^\)]+)\)/g; let matches = [...content.matchAll(imgRegex)];
             let localMatches = matches.filter(m => { const url = m[2]; return !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('data:') && !url.startsWith('blob:'); });
 
             if (localMatches.length === 0) { await customAlert("No local images found in this note to upload."); return; }
-            if (!await customConfirm(`Found ${localMatches.length} local images. Upload them to ImgBB and replace their paths?`)) return;
+
+            document.getElementById('imgbb-modal').style.display = 'flex';
+            document.getElementById('imgbb-loading').style.display = 'block';
+            document.getElementById('imgbb-loading').innerText = `Fetching 1/${localMatches.length} images...`;
+            document.getElementById('imgbb-preview-list').style.display = 'none';
+            document.getElementById('imgbb-preview-list').innerHTML = '';
+            document.getElementById('imgbb-confirm-btn').disabled = true;
+            document.getElementById('imgbb-confirm-btn').innerText = "Upload";
+
+            const shouldCompress = getStore('compressImages') === 'true';
+            document.getElementById('imgbb-compress-checkbox').checked = shouldCompress;
 
             const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const branch = getBranch();
-            const btn = document.getElementById('imgbb-btn'); const originalBtnText = btn.innerText;
-            let successCount = 0; let failCount = 0;
+
+            imgbbUploadQueue = [];
+            let html = '';
 
             for (let i = 0; i < localMatches.length; i++) {
-                btn.innerText = `Uploading ${i+1}/${localMatches.length}...`;
+                document.getElementById('imgbb-loading').innerText = `Fetching & Compressing ${i+1}/${localMatches.length}...`;
+
                 const fullMatch = localMatches[i][0]; const altText = localMatches[i][1]; let imgPath = decodeURIComponent(localMatches[i][2]);
                 let resolvedPath = imgPath;
                 if (resolvedPath.startsWith('/')) resolvedPath = resolvedPath.substring(1);
@@ -828,20 +865,97 @@
                     const fileSha = fileMeta.sha; const blobUrl = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${fileSha}`;
                     const blobRes = await fetch(blobUrl, { headers: getApiHeaders(), cache: 'no-store' });
                     if (!blobRes.ok) throw new Error(`Failed to fetch blob for: ${resolvedPath}`);
-                    const blobData = await blobRes.json(); let base64Content = blobData.content.replace(/\n/g, '');
+                    const blobData = await blobRes.json();
+                    let base64Content = blobData.content.replace(/\n/g, '');
 
-                    if (shouldCompress) { try { btn.innerText = `Compressing ${i+1}/${localMatches.length}...`; base64Content = await compressBase64Image(base64Content, 0.75, 1920); fileName = fileName.replace(/\.[^/.]+$/, ".jpg"); } catch (compErr) { console.warn("Compression failed, uploading original image instead:", compErr); } }
+                    let originalSize = Math.round((base64Content.length * 0.75) / 1024);
 
-                    btn.innerText = `Sending ${i+1}/${localMatches.length}...`;
-                    const formData = new FormData(); formData.append('key', imgbbKey); formData.append('image', base64Content); formData.append('name', fileName);
+                    let compressedBase64 = null;
+                    let compressedSize = 0;
+                    try {
+                        compressedBase64 = await compressBase64Image(base64Content, 0.75, 1920);
+                        compressedSize = Math.round((compressedBase64.length * 0.75) / 1024);
+                    } catch(e) {
+                        console.warn("Compression failed for preview", e);
+                    }
+
+                    imgbbUploadQueue.push({
+                        fullMatch, altText, imgPath, fileName,
+                        originalBase64: base64Content,
+                        compressedBase64: compressedBase64,
+                        originalSize, compressedSize
+                    });
+
+                    const origSrc = `data:image/png;base64,${base64Content}`;
+                    const compSrc = compressedBase64 ? `data:image/jpeg;base64,${compressedBase64}` : origSrc;
+
+                    html += `
+                        <div style="display: flex; gap: 15px; border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; background: var(--panel-bg);">
+                            <div style="flex: 1; text-align: center; display: flex; flex-direction: column;">
+                                <strong style="margin-bottom: 5px;">Original (${originalSize} KB)</strong>
+                                <img src="${origSrc}" style="max-height: 150px; object-fit: contain; flex-grow: 1; border: 1px dashed var(--border-color); padding: 2px;">
+                            </div>
+                            <div style="flex: 1; text-align: center; display: flex; flex-direction: column;">
+                                <strong style="margin-bottom: 5px;">Compressed (${compressedBase64 ? compressedSize + ' KB' : 'N/A'})</strong>
+                                <img src="${compSrc}" style="max-height: 150px; object-fit: contain; flex-grow: 1; border: 1px dashed var(--border-color); padding: 2px;">
+                            </div>
+                        </div>
+                    `;
+
+                } catch (err) {
+                    console.error("Failed to load preview for:", imgPath, err);
+                    html += `<div style="color: red; padding: 10px; border: 1px solid red; border-radius: 6px;">Failed to load preview for ${imgPath}: ${err.message}</div>`;
+                }
+            }
+
+            document.getElementById('imgbb-preview-list').innerHTML = html;
+            document.getElementById('imgbb-loading').style.display = 'none';
+            document.getElementById('imgbb-preview-list').style.display = 'flex';
+            document.getElementById('imgbb-confirm-btn').disabled = false;
+        }
+
+        async function executeImgbbUpload() {
+            const btn = document.getElementById('imgbb-confirm-btn');
+            btn.disabled = true;
+
+            const doCompress = document.getElementById('imgbb-compress-checkbox').checked;
+            const imgbbKey = getStore('imgbbKey');
+
+            let content = document.getElementById('markdown-editor').value;
+            let successCount = 0; let failCount = 0;
+
+            for (let i = 0; i < imgbbUploadQueue.length; i++) {
+                const item = imgbbUploadQueue[i];
+                btn.innerText = `Uploading ${i+1}/${imgbbUploadQueue.length}...`;
+
+                let base64ToUpload = item.originalBase64;
+                let fileName = item.fileName;
+                if (doCompress && item.compressedBase64) {
+                    base64ToUpload = item.compressedBase64;
+                    fileName = fileName.replace(/\.[^/.]+$/, ".jpg");
+                }
+
+                try {
+                    const formData = new FormData(); formData.append('key', imgbbKey); formData.append('image', base64ToUpload); formData.append('name', fileName);
                     const imgbbRes = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
                     if (!imgbbRes.ok) { const errRes = await imgbbRes.json(); throw new Error(`ImgBB API Error: ${errRes?.error?.message || "Upload Failed"}`); }
                     
                     const imgbbData = await imgbbRes.json(); const newImgUrl = imgbbData.data.url;
-                    const newMdImg = `![${altText}](${newImgUrl})`; content = content.replace(fullMatch, newMdImg); successCount++;
-                } catch (err) { console.error("Upload failed for:", imgPath, err); failCount++; }
+                    const newMdImg = `![${item.altText}](${newImgUrl})`;
+                    content = content.replace(item.fullMatch, newMdImg);
+                    successCount++;
+                } catch(e) {
+                    console.error("Upload failed for:", item.imgPath, e);
+                    failCount++;
+                }
             }
-            editor.value = content; btn.innerText = originalBtnText; await customAlert(`Finished Migration!\n\nSuccessfully Uploaded: ${successCount}\nFailed: ${failCount}\n\nPlease click 'Save to GitHub' to preserve these changes.`);
+
+            document.getElementById('markdown-editor').value = content;
+            closeImgbbModal();
+            btn.innerText = "Upload";
+            btn.disabled = false;
+
+            await customAlert(`Finished Migration!\n\nSuccessfully Uploaded: ${successCount}\nFailed: ${failCount}\n\nPlease click 'Save to GitHub' to preserve these changes.`);
             if (!isEditMode) { toggleMode(); toggleMode(); }
         }
 
