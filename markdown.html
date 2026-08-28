@@ -8,6 +8,11 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
 
+    <!-- KaTeX for LaTeX rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked-katex-extension/lib/index.umd.js"></script>
+
     <style>
         :root {
             --bg-color: #121212; --text-color: #e0e0e0; --accent: #ff5252;
@@ -67,9 +72,10 @@
         .search-bar { width: 100%; padding: 12px; margin-bottom: 15px; box-sizing: border-box; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 8px; transition: border-color 0.3s, box-shadow 0.3s;}
         .search-bar:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(255, 82, 82, 0.2); }
         
-        #file-list { background: var(--panel-bg); border-radius: 8px; border: 1px solid var(--border-color); overflow: hidden; }
+        #file-list { background: var(--panel-bg); border-radius: 8px; border: 1px solid var(--border-color); }
         .list-item { padding: 15px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; gap: 10px; transition: background-color 0.2s; }
-        .list-item:last-child { border-bottom: none; }
+        .list-item:first-child { border-radius: 8px 8px 0 0; }
+        .list-item:last-child { border-bottom: none; border-radius: 0 0 8px 8px; }
         .list-item:hover { background-color: var(--bg-color); }
         .item-main { display: flex; align-items: center; gap: 15px; cursor: pointer; flex-grow: 1; overflow: hidden; }
         
@@ -79,7 +85,7 @@
         .menu-options { 
             display: none; position: absolute; right: 0; top: 100%; 
             background: var(--panel-bg); border: 1px solid var(--border-color); 
-            z-index: 10; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); min-width: 120px;
+            z-index: 100; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); min-width: 120px;
         }
         .menu-options button { display: block; width: 100%; text-align: left; padding: 10px; background: none; border: none; color: var(--text-color); cursor: pointer; font-size: 14px;}
         .menu-options button:hover { background: var(--bg-color); }
@@ -106,6 +112,16 @@
         textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(255, 82, 82, 0.2); }
         
         video, audio, img { max-width: 100%; border-radius: 4px; display: block; margin: 10px auto; }
+
+        /* Markdown Styles */
+        #viewer-container code { background: rgba(128, 128, 128, 0.2); padding: 2px 5px; border-radius: 4px; font-family: monospace; font-size: 0.9em; color: var(--text-color); }
+        #viewer-container pre { background: var(--bg-color); border: 1px solid var(--border-color); padding: 15px; border-radius: 6px; overflow-x: auto; }
+        #viewer-container pre code { background: transparent; padding: 0; color: inherit; }
+        #viewer-container table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+        #viewer-container table, #viewer-container th, #viewer-container td { border: 1px solid var(--border-color); padding: 8px 12px; }
+        #viewer-container th { background-color: rgba(128, 128, 128, 0.1); }
+        #viewer-container spoiler { color: transparent; background-color: var(--text-color); padding: 0 4px; border-radius: 4px; cursor: pointer; transition: color 0.2s, background-color 0.2s; }
+        #viewer-container spoiler:hover, #viewer-container spoiler:active { color: inherit; background-color: rgba(128, 128, 128, 0.2); }
 
         /* Custom Modal Styles */
         .modal-overlay {
@@ -351,15 +367,31 @@
             let href = typeof token === 'object' ? token.href : arguments[0];
             let title = (typeof token === 'object' ? token.title : arguments[1]) || '';
             let text = (typeof token === 'object' ? token.text : arguments[2]) || '';
-            return `<a href="${href || ''}" target="_blank" rel="noopener noreferrer"><img src="${href || ''}" alt="${text}" title="${title}" style="cursor: pointer;" /></a>`;
+
+            let anchorHref = href || '';
+            if (anchorHref && !anchorHref.startsWith('http') && !anchorHref.startsWith('//') && !anchorHref.startsWith('data:') && !anchorHref.startsWith('blob:')) {
+                let resolvedPath = anchorHref;
+                if (resolvedPath.startsWith('/')) { resolvedPath = resolvedPath.substring(1); }
+                else if (currentPath.length > 0) { resolvedPath = `${currentPath.join('/')}/${resolvedPath}`; }
+                anchorHref = `?open=${encodeURIComponent(resolvedPath)}`;
+            }
+
+            return `<a href="${anchorHref}" target="_blank" rel="noopener noreferrer"><img src="${href || ''}" alt="${text}" title="${title}" style="cursor: pointer;" /></a>`;
         };
 
         marked.setOptions({ renderer: renderer, gfm: true, breaks: true });
+        if (window.markedKatex) { marked.use(window.markedKatex({ throwOnError: false })); }
 
         const sanitizeOptions = {
-            ADD_TAGS: ['video', 'audio', 'source', 'track', 'iframe', 'div', 'span', 'details', 'summary', 'kbd', 'br', 'hr', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'style', 'font', 'center', 'strike', 'u', 'mark', 'sub', 'sup', 'abbr', 'b', 'i', 'strong', 'em', 'del', 'ins'],
-            ADD_ATTR: ['target', 'style', 'src', 'controls', 'autoplay', 'loop', 'muted', 'allow', 'allowfullscreen', 'frameborder', 'data-path', 'class', 'id', 'type', 'width', 'height', 'align', 'valign', 'color', 'bgcolor', 'border']
+            ADD_TAGS: ['video', 'audio', 'source', 'track', 'iframe', 'div', 'span', 'details', 'summary', 'kbd', 'br', 'hr', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'style', 'font', 'center', 'strike', 'u', 'mark', 'sub', 'sup', 'abbr', 'b', 'i', 'strong', 'em', 'del', 'ins', 'math', 'mi', 'mo', 'mn', 'ms', 'mspace', 'mtext', 'menclose', 'merror', 'mfenced', 'mfrac', 'mpadded', 'mphantom', 'mroot', 'mrow', 'msqrt', 'mstyle', 'mmultiscripts', 'mover', 'mprescripts', 'msub', 'msubsup', 'msup', 'munder', 'munderover', 'none', 'maligngroup', 'malignmark', 'mtable', 'mtd', 'mtr', 'mlongdiv', 'mscarries', 'mscarry', 'msgroup', 'msline', 'msrow', 'semantics', 'annotation', 'annotation-xml', 'spoiler'],
+            ADD_ATTR: ['target', 'style', 'src', 'controls', 'autoplay', 'loop', 'muted', 'allow', 'allowfullscreen', 'frameborder', 'data-path', 'class', 'id', 'type', 'width', 'height', 'align', 'valign', 'color', 'bgcolor', 'border', 'mathvariant', 'encoding', 'display', 'xmlns', 'sandbox']
         };
+
+        DOMPurify.addHook('afterSanitizeAttributes', function(node) {
+            if ('target' in node && node.getAttribute('target') === '_blank') {
+                node.setAttribute('rel', 'noopener noreferrer');
+            }
+        });
 
         const decodeBase64UTF8 = (base64) => {
             try { return decodeURIComponent(escape(atob(base64))); } 
@@ -821,6 +853,17 @@
             document.getElementById('imgbb-modal').style.display = 'none';
         }
 
+        function openImageModal(src) {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.8); z-index: 2000; display: flex; align-items: center; justify-content: center; cursor: pointer;';
+            const img = document.createElement('img');
+            img.src = src;
+            img.style.cssText = 'max-width: 90%; max-height: 90%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);';
+            overlay.appendChild(img);
+            overlay.onclick = () => document.body.removeChild(overlay);
+            document.body.appendChild(overlay);
+        }
+
         async function uploadLocalImagesToImgBB() {
             const imgbbKey = getStore('imgbbKey'); if (!imgbbKey) { await customAlert("Please add your ImgBB API Key in Settings first."); showView('settings'); return; }
 
@@ -890,14 +933,15 @@
                     const compSrc = compressedBase64 ? `data:image/jpeg;base64,${compressedBase64}` : origSrc;
 
                     html += `
-                        <div style="display: flex; gap: 15px; border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; background: var(--panel-bg);">
+                        <div style="display: flex; align-items: center; gap: 15px; border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; background: var(--panel-bg);">
+                            <input type="checkbox" id="imgbb-check-${i}" class="imgbb-select-checkbox" checked style="transform: scale(1.5); margin-left: 10px;">
                             <div style="flex: 1; text-align: center; display: flex; flex-direction: column;">
                                 <strong style="margin-bottom: 5px;">Original (${originalSize} KB)</strong>
-                                <img src="${origSrc}" style="max-height: 150px; object-fit: contain; flex-grow: 1; border: 1px dashed var(--border-color); padding: 2px;">
+                                <img src="${origSrc}" onclick="openImageModal(this.src)" style="max-height: 150px; object-fit: contain; flex-grow: 1; border: 1px dashed var(--border-color); padding: 2px; cursor: pointer;">
                             </div>
                             <div style="flex: 1; text-align: center; display: flex; flex-direction: column;">
                                 <strong style="margin-bottom: 5px;">Compressed (${compressedBase64 ? compressedSize + ' KB' : 'N/A'})</strong>
-                                <img src="${compSrc}" style="max-height: 150px; object-fit: contain; flex-grow: 1; border: 1px dashed var(--border-color); padding: 2px;">
+                                <img src="${compSrc}" onclick="openImageModal(this.src)" style="max-height: 150px; object-fit: contain; flex-grow: 1; border: 1px dashed var(--border-color); padding: 2px; cursor: pointer;">
                             </div>
                         </div>
                     `;
@@ -925,6 +969,9 @@
             let successCount = 0; let failCount = 0;
 
             for (let i = 0; i < imgbbUploadQueue.length; i++) {
+                const checkbox = document.getElementById('imgbb-check-' + i);
+                if (checkbox && !checkbox.checked) continue;
+
                 const item = imgbbUploadQueue[i];
                 btn.innerText = `Uploading ${i+1}/${imgbbUploadQueue.length}...`;
 
