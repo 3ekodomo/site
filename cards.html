@@ -373,7 +373,7 @@
         <div id="error-msg"></div>
     </div>
 
-    <div class="card-container" id="flashcard">
+    <div class="card-container" id="flashcard" onclick="handleFlashcardClick(event)">
         <div class="progress" id="progress-text"></div>
         <h2 id="card-title">Card Title</h2>
         
@@ -575,7 +575,12 @@
                         const span = document.createElement('span');
                         span.className = 'masked-word shloka-word';
                         span.innerText = word;
-                        span.onclick = function() { this.classList.remove('masked-word'); };
+                        span.onclick = function(event) {
+                            if (this.classList.contains('masked-word')) {
+                                this.classList.remove('masked-word');
+                                event.stopPropagation();
+                            }
+                        };
                         lineDiv.appendChild(span);
                         lineDiv.appendChild(document.createTextNode(' '));
                     }
@@ -748,6 +753,17 @@
 
         function closeModal() {
             document.getElementById('image-modal').style.display = "none";
+        }
+
+        function handleFlashcardClick(event) {
+            // Do not unmask if clicking a button, link, image, or if text is selected
+            if (event.target.closest('button, a, img')) {
+                return;
+            }
+            if (window.getSelection().toString().length > 0) {
+                return;
+            }
+            unmaskWord();
         }
 
         function unmaskWord() {
