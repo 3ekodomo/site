@@ -314,7 +314,7 @@
             <input type="text" id="gh-branch" placeholder="Branch (e.g. main)" value="main">
             
             <h4 style="margin: 6px 0 0 0;">Integrations</h4>
-            <input type="password" id="imgbb-key" placeholder="ImgBB API Key (Optional - supports Ctrl+V image paste)">
+            <input type="password" id="imgbb-key" placeholder="ImgBB API Key (Optional - supports Ctrl+V / Mobile image paste)">
             <label><input type="checkbox" id="compress-images"> Compress images before ImgBB upload</label>
 
             <div style="display: flex; gap: 15px; margin-top: 5px;">
@@ -371,6 +371,8 @@
                 <button class="btn-secondary" id="mode-edit-btn" onclick="setNoteMode('edit')">✏️ Edit</button>
             </div>
             <div class="note-toolbar-group">
+                <input type="file" id="mobile-img-input" accept="image/*" style="display: none;" onchange="if(this.files[0]) { handleDirectImageUpload(this.files[0]); this.value=''; }">
+                <button class="btn-secondary" onclick="pasteOrPickImage()" title="Paste image from clipboard or pick file">📋 Paste Img</button>
                 <button class="btn-secondary" onclick="toggleToc()" title="Table of Contents">📑 Outline</button>
                 <button class="btn-secondary" onclick="uploadLocalImagesToImgBB()" title="Upload local images to ImgBB">☁️ ImgBB</button>
                 <button class="btn-secondary" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
@@ -381,7 +383,7 @@
         <div class="note-workspace">
             <div id="editor-container">
                 <input type="text" id="filepath-input" class="search-bar" placeholder="File path (e.g. folder/filename.md)">
-                <textarea id="markdown-editor" placeholder="Write Markdown here... (Tip: Paste images with Ctrl+V to upload to ImgBB)"></textarea>
+                <textarea id="markdown-editor" placeholder="Write Markdown here... (Tip: Paste images with Ctrl+V or tap '📋 Paste Img' on mobile to upload to ImgBB)"></textarea>
             </div>
             <div id="viewer-container"></div>
             <div id="toc-sidebar">
@@ -1123,7 +1125,7 @@
         async function openFile(filePath, bypassCache = false, pushHistory = true) {
             const owner = getStore('ghOwner'); const repo = getStore('ghRepo'); const token = getStore('ghToken'); const branch = getBranch();
             
-            if (filePath.match(/\.(png|jpe?g|gif|webp|svg|mp4|webm|ogg|mp3|wav|m4a)\$/i)) {
+            if (filePath.match(/\.(png|jpe?g|gif|webp|svg|mp4|webm|ogg|mp3|wav|m4a)$/i)) {
                 try {
                     const ext = filePath.split('.').pop().toLowerCase();
                     if (!bypassCache && mediaBlobCache.has(filePath)) {
@@ -1359,6 +1361,66 @@
             sidebar.style.display = sidebar.style.display === 'block' ? 'none' : 'block';
         }
 
+        // Reusable Direct Image Upload Helper (Desktop Ctrl+V, Mobile Paste Button, Gboard IME & File Picker)
+        async function handleDirectImageUpload(fileOrBlob) {
+            const editor = document.getElementById('markdown-editor');
+            const imgbbKey = getStore('imgbbKey');
+            if (!imgbbKey) {
+                showToast("Add an ImgBB API Key in Settings to paste images directly!");
+                return;
+            }
+
+            if (noteMode === 'view') setNoteMode('edit');
+
+            const placeholder = `![Uploading ${fileOrBlob.name || 'image'}...]()`;
+            insertAtCursor(editor, placeholder);
+
+            try {
+                const base64 = await blobToBase64(fileOrBlob);
+                const doCompress = getStore('compressImages') === 'true';
+                const finalBase64 = doCompress ? await compressBase64Image(base64, 0.8, 1920) : base64;
+
+                const formData = new FormData();
+                formData.append('key', imgbbKey);
+                formData.append('image', finalBase64);
+
+                const res = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data?.error?.message || 'Upload failed');
+
+                editor.value = editor.value.replace(placeholder, `![image](${data.data.url})`);
+                setDirty(true);
+                if (noteMode === 'split') renderMarkdownPreview();
+                showToast("Image uploaded to ImgBB!");
+            } catch (err) {
+                editor.value = editor.value.replace(placeholder, '');
+                await customAlert("Image upload failed: " + err.message);
+            }
+        }
+
+        // Mobile & Desktop Clipboard Read + Native File Picker Fallback
+        async function pasteOrPickImage() {
+            if (noteMode === 'view') setNoteMode('edit');
+
+            if (navigator.clipboard && navigator.clipboard.read) {
+                try {
+                    const clipboardItems = await navigator.clipboard.read();
+                    for (const item of clipboardItems) {
+                        const imageType = item.types.find(type => type.startsWith('image/'));
+                        if (imageType) {
+                            const blob = await item.getType(imageType);
+                            await handleDirectImageUpload(blob);
+                            return;
+                        }
+                    }
+                } catch (err) {
+                    console.warn("Direct clipboard read unavailable or denied, falling back to file picker:", err);
+                }
+            }
+
+            document.getElementById('mobile-img-input').click();
+        }
+
         function setupEditorEnhancements() {
             const editor = document.getElementById('markdown-editor');
             let previewTimer = null;
@@ -1383,40 +1445,41 @@
                 }
             });
 
-            // Direct Ctrl+V Image Paste to ImgBB
+            // 1. Standard Paste (Desktop Ctrl+V & supported mobile browsers)
             editor.addEventListener('paste', async (e) => {
-                const items = (e.clipboardData || e.originalEvent.clipboardData).items;
-                for (const item of items) {
-                    if (item.type.indexOf('image') === 0) {
-                        const imgbbKey = getStore('imgbbKey');
-                        if (!imgbbKey) {
-                            showToast("Add an ImgBB API Key in Settings to paste images directly!");
+                const clipboardData = e.clipboardData || e.originalEvent?.clipboardData;
+                if (!clipboardData) return;
+
+                if (clipboardData.files && clipboardData.files.length > 0) {
+                    for (const file of clipboardData.files) {
+                        if (file.type.startsWith('image/')) {
+                            e.preventDefault();
+                            await handleDirectImageUpload(file);
                             return;
                         }
-                        e.preventDefault();
-                        const file = item.getAsFile();
-                        const placeholder = `![Uploading ${file.name || 'image'}...]()`;
-                        insertAtCursor(editor, placeholder);
+                    }
+                }
 
-                        try {
-                            const base64 = await blobToBase64(file);
-                            const doCompress = getStore('compressImages') === 'true';
-                            const finalBase64 = doCompress ? await compressBase64Image(base64, 0.8, 1920) : base64;
+                if (clipboardData.items) {
+                    for (const item of clipboardData.items) {
+                        if (item.type.startsWith('image/')) {
+                            e.preventDefault();
+                            const file = item.getAsFile();
+                            if (file) await handleDirectImageUpload(file);
+                            return;
+                        }
+                    }
+                }
+            });
 
-                            const formData = new FormData();
-                            formData.append('key', imgbbKey);
-                            formData.append('image', finalBase64);
-                            const res = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
-                            const data = await res.json();
-                            if (!res.ok) throw new Error(data?.error?.message || 'Upload failed');
-
-                            editor.value = editor.value.replace(placeholder, `![image](${data.data.url})`);
-                            setDirty(true);
-                            if (noteMode === 'split') renderMarkdownPreview();
-                            showToast("Image uploaded to ImgBB!");
-                        } catch (err) {
-                            editor.value = editor.value.replace(placeholder, '');
-                            await customAlert("Clipboard image upload failed: " + err.message);
+            // 2. Catch Android IME / Gboard clipboard chip insertions
+            editor.addEventListener('beforeinput', async (e) => {
+                if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    for (const file of e.dataTransfer.files) {
+                        if (file.type.startsWith('image/')) {
+                            e.preventDefault();
+                            await handleDirectImageUpload(file);
+                            return;
                         }
                     }
                 }
@@ -1598,7 +1661,7 @@
                 btn.innerText = `Uploading ${i+1}/${imgbbUploadQueue.length}...`;
 
                 let base64ToUpload = (doCompress && item.compressedBase64) ? item.compressedBase64 : item.originalBase64;
-                let fileName = (doCompress && item.compressedBase64) ? item.fileName.replace(/\.[^/.]+\$/, ".jpg") : item.fileName;
+                let fileName = (doCompress && item.compressedBase64) ? item.fileName.replace(/\.[^/.]+$/, ".jpg") : item.fileName;
 
                 try {
                     const formData = new FormData();
