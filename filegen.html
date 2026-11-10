@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown File Generator & Batch Downloader</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- JSZip CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- FileSaver.js for easy downloading -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed top-5 right-5 z-50 transform translate-y-[-200%] transition-transform duration-300 bg-slate-800 border border-slate-700 text-slate-200 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+        <span id="toast-message" class="text-sm font-medium">Action successful!</span>
+    </div>
+
+    <!-- Header -->
+    <header class="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                    <i class="fa-solid fa-file-lines text-white text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-base sm:text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">NoteForge MD Pro</h1>
+                    <p class="text-xs text-slate-400">Advanced Batch Markdown File Generator</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="loadSample()" class="text-xs font-medium px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 hover:bg-slate-800/60 transition text-slate-300 flex items-center gap-2 shadow-sm">
+                    <i class="fa-solid fa-wand-magic-sparkles text-indigo-400"></i>
+                    <span>Load Sample</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- Left Column: Input Form & Options -->
+        <section class="lg:col-span-5 flex flex-col gap-6">
+            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl backdrop-blur-sm flex flex-col gap-5">
+                
+                <!-- Headings Input Section -->
+                <div class="flex flex-col gap-2.5">
+                    <div class="flex items-center justify-between">
+                        <label for="headingsInput" class="font-semibold text-slate-200 flex items-center gap-2 text-sm sm:text-base">
+                            <i class="fa-solid fa-pen-to-square text-indigo-400"></i>
+                            <span>Headings (One per line)</span>
+                        </label>
+                        <span id="line-count" class="text-xs bg-slate-800 text-slate-400 px-2.5 py-1 rounded-full font-mono">0 lines</span>
+                    </div>
+                    <textarea id="headingsInput" rows="6" placeholder="1. Heading one&#10;2. Heading two&#10;3. Heading three&#10;4. Heading four&#10;5. Heading five" class="w-full bg-slate-950/70 border border-slate-800 rounded-xl p-3.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono resize-y transition shadow-inner" oninput="updateLineCount(); generateFiles();"></textarea>
+                </div>
+
+                <!-- File Naming & Settings Card -->
+                <div class="bg-slate-950/40 border border-slate-800/60 rounded-xl p-4 flex flex-col gap-4">
+                    <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-indigo-400"></i>
+                        <span>File Settings</span>
+                    </h3>
+                    
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="col-span-2 flex flex-col gap-1.5">
+                            <label for="filePrefix" class="text-xs text-slate-400">Filename Prefix</label>
+                            <input type="text" id="filePrefix" value="Note_" oninput="generateFiles()" class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label for="fileExt" class="text-xs text-slate-400">Extension</label>
+                            <select id="fileExt" onchange="generateFiles()" class="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
+                                <option value=".md">.md</option>
+                                <option value=".txt">.txt</option>
+                                <option value=".markdown">.markdown</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="flex flex-col gap-1.5">
+                            <label for="startIdx" class="text-xs text-slate-400">Start Index</label>
+                            <input type="number" id="startIdx" value="1" min="0" oninput="generateFiles()" class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
+                        </div>
+                        <div class="flex flex-col gap-1.5">
+                            <label for="indexPadding" class="text-xs text-slate-400">Index Padding</label>
+                            <select id="indexPadding" onchange="generateFiles()" class="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
+                                <option value="none">None (1, 2...)</option>
+                                <option value="2">2-Digit (01, 02...)</option>
+                                <option value="3">3-Digit (001, 002...)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced Template & Frontmatter Card -->
+                <div class="bg-slate-950/40 border border-slate-800/60 rounded-xl p-4 flex flex-col gap-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                            <i class="fa-solid fa-code text-indigo-400"></i>
+                            <span>Content Template & Frontmatter</span>
+                        </h3>
+                    </div>
+
+                    <div class="flex items-center justify-between bg-slate-900/60 p-3 rounded-xl border border-slate-800/60">
+                        <div class="flex flex-col">
+                            <span class="text-xs font-medium text-slate-200">YAML Frontmatter</span>
+                            <span class="text-[10px] text-slate-400">Include date, author & tags metadata</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="enableFrontmatter" onchange="toggleFrontmatterFields(); generateFiles();" class="sr-only peer">
+                            <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
+
+                    <!-- Frontmatter Config Fields (Hidden by default) -->
+                    <div id="frontmatterConfigBox" class="hidden flex flex-col gap-3 pt-1">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="flex flex-col gap-1">
+                                <label for="fmAuthor" class="text-[11px] text-slate-400">Author</label>
+                                <input type="text" id="fmAuthor" value="Admin" oninput="generateFiles()" class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label for="fmTags" class="text-[11px] text-slate-400">Tags (comma-separated)</label>
+                                <input type="text" id="fmTags" value="notes, docs" oninput="generateFiles()" class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5 pt-1">
+                        <div class="flex items-center justify-between">
+                            <label for="bodyTemplate" class="text-xs text-slate-400">Body Template</label>
+                            <span class="text-[10px] text-indigo-400 font-mono">Placeholders: {heading}, {index}, {date}</span>
+                        </div>
+                        <textarea id="bodyTemplate" rows="4" oninput="generateFiles()" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-mono resize-y transition"># {heading}
+
+Date: {date}
+
+## Notes & Overview
+Write your detailed notes or content for this topic here...
+
+---
+*Generated automatically via NoteForge Pro*</textarea>
+                    </div>
+                </div>
+
+                <!-- Global Action Buttons -->
+                <div class="flex flex-col sm:flex-row gap-3 pt-1">
+                    <button onclick="downloadZip()" id="downloadZipBtn" disabled class="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium py-3.5 px-4 rounded-xl shadow-lg shadow-indigo-600/25 transition duration-200 flex items-center justify-center gap-2 text-sm">
+                        <i class="fa-solid fa-file-zipper"></i>
+                        <span>Download All (.ZIP)</span>
+                    </button>
+                    <button onclick="copyAllContent()" id="copyAllBtn" disabled class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium py-3.5 px-4 rounded-xl shadow-lg transition duration-200 flex items-center justify-center gap-2 text-sm">
+                        <i class="fa-regular fa-copy"></i>
+                        <span>Copy All</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Column: Live Preview Area with Tabs -->
+        <section class="lg:col-span-7 flex flex-col gap-4">
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <h2 class="font-semibold text-slate-200 flex items-center gap-2 text-sm sm:text-base">
+                    <i class="fa-solid fa-eye text-indigo-400"></i>
+                    <span>Live File Previews</span>
+                </h2>
+                <div class="flex items-center gap-3">
+                    <span id="file-counter" class="text-xs text-slate-400 font-mono">0 files generated</span>
+                </div>
+            </div>
+
+            <!-- Preview Container -->
+            <div class="flex-1 bg-slate-900/60 border border-slate-800 rounded-2xl p-5 min-h-[550px] max-h-[750px] overflow-hidden flex flex-col shadow-xl backdrop-blur-sm">
+                <!-- Initial Empty State -->
+                <div id="emptyState" class="h-full my-auto flex flex-col items-center justify-center text-center py-24 gap-3">
+                    <div class="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-slate-500 text-2xl shadow-inner">
+                        <i class="fa-solid fa-folder-open"></i>
+                    </div>
+                    <div class="max-w-xs">
+                        <h3 class="text-sm font-medium text-slate-300">No files generated yet</h3>
+                        <p class="text-xs text-slate-500 mt-1">Enter your headings on the left panel to instantly preview your structured markdown files.</p>
+                    </div>
+                </div>
+
+                <!-- Preview Content Area with Tabs -->
+                <div id="previewContentArea" class="hidden flex-1 flex flex-col overflow-hidden">
+                    <!-- File Tabs Bar -->
+                    <div id="fileTabsBar" class="flex items-center gap-2 overflow-x-auto pb-3 border-b border-slate-800/80 scrollbar-thin"></div>
+
+                    <!-- Active File Content Viewer -->
+                    <div class="flex-1 flex flex-col pt-4 overflow-hidden gap-3">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span id="activeFileName" class="font-mono text-xs font-bold text-indigo-300 bg-indigo-950/60 border border-indigo-800/50 px-2.5 py-1 rounded-lg"></span>
+                                <span id="activeFileStats" class="text-[11px] text-slate-400 font-mono"></span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="downloadActiveFile()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+                                    <i class="fa-solid fa-download text-emerald-400"></i>
+                                    <span>Download File</span>
+                                </button>
+                                <button onclick="copyActiveFileContent()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+                                    <i class="fa-regular fa-copy"></i>
+                                    <span>Copy</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Code Viewer Box -->
+                        <div class="flex-1 bg-slate-950/90 border border-slate-800/80 rounded-xl p-4 overflow-y-auto font-mono text-xs text-slate-300 whitespace-pre-wrap shadow-inner" id="activeFileCodeView"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <header class="border-t border-slate-900 bg-slate-950 py-4 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
+            NoteForge MD Pro &bull; Fully client-side batch generator with JSZip
+        </div>
+    </header>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        let generatedFilesData = [];
+        let activeFileIndex = 0;
+
+        // Initialize with default sample on load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSample();
+        });
+
+        function updateLineCount() {
+            const textarea = document.getElementById('headingsInput');
+            const lines = textarea.value.split('\n').filter(line => line.trim() !== '');
+            document.getElementById('line-count').textContent = `${lines.length} line${lines.length === 1 ? '' : 's'}`;
+        }
+
+        function loadSample() {
+            const sampleText = "1. Introduction to Web Development\n2. Setting up Tailwind CSS and JavaScript\n3. Building State-Driven Components\n4. Client-side File Generation with JSZip\n5. Deployment and Best Practices";
+            document.getElementById('headingsInput').value = sampleText;
+            updateLineCount();
+            generateFiles();
+        }
+
+        function toggleFrontmatterFields() {
+            const enabled = document.getElementById('enableFrontmatter').checked;
+            const box = document.getElementById('frontmatterConfigBox');
+            if (enabled) {
+                box.classList.remove('hidden');
+            } else {
+                box.classList.add('hidden');
+            }
+        }
+
+        function showToast(message, type = "success") {
+            // Simple notification toast
+            let toast = document.getElementById('toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'toast';
+                toast.className = 'fixed top-5 right-5 z-50 transform translate-y-[-200%] transition-transform duration-300 bg-slate-800 border border-slate-700 text-slate-200 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3';
+                toast.innerHTML = `<i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i><span id="toast-message" class="text-sm font-medium"></span>`;
+                document.body.appendChild(toast);
+            }
+            document.getElementById('toast-message').textContent = message;
+            document.getElementById('toast-icon').className = type === "success" ? "fa-solid fa-circle-check text-emerald-400 text-lg" : "fa-solid fa-triangle-exclamation text-amber-400 text-lg";
+            
+            toast.style.transform = "translateY(0)";
+            setTimeout(() => {
+                toast.style.transform = "translateY(-200%)";
+            }, 3000);
+        }
+
+        function padIndex(num, paddingType) {
+            const strNum = num.toString();
+            if (paddingType === "2") {
+                return strNum.padStart(2, '0');
+            } else if (paddingType === "3") {
+                return strNum.padStart(3, '0');
+            }
+            return strNum;
+        }
+
+        function generateFiles() {
+            const rawText = document.getElementById('headingsInput').value.trim();
+            const prefix = document.getElementById('filePrefix').value.trim() || "Note_";
+            const ext = document.getElementById('fileExt').value;
+            const startIdx = parseInt(document.getElementById('startIdx').value) || 1;
+            const paddingType = document.getElementById('indexPadding').value;
+            
+            const enableFrontmatter = document.getElementById('enableFrontmatter').checked;
+            const fmAuthor = document.getElementById('fmAuthor').value.trim() || "Admin";
+            const fmTagsInput = document.getElementById('fmTags').value.trim();
+            const bodyTemplate = document.getElementById('bodyTemplate').value;
+
+            if (!rawText) {
+                generatedFilesData = [];
+                renderPreview();
+                document.getElementById('downloadZipBtn').setAttribute('disabled', 'true');
+                document.getElementById('copyAllBtn').setAttribute('disabled', 'true');
+                return;
+            }
+
+            const lines = rawText.split('\n');
+            generatedFilesData = [];
+            let indexCounter = startIdx;
+            const currentDate = new Date().toISOString().split('T')[0];
+
+            lines.forEach((line) => {
+                const trimmed = line.trim();
+                if (trimmed === "") return;
+
+                const formattedIndex = padIndex(indexCounter, paddingType);
+                const fileName = `${prefix}${formattedIndex}${ext}`;
+
+                // Build Frontmatter if enabled
+                let frontmatterStr = "";
+                if (enableFrontmatter) {
+                    const tagsArr = fmTagsInput.split(',').map(t => `"${t.trim()}"`).filter(t => t !== '""').join(', ');
+                    frontmatterStr = `---\ntitle: "${trimmed.replace(/"/g, '\\"')}"\ndate: ${currentDate}\nauthor: "${fmAuthor}"\ntags: [${tagsArr}]\n---\n\n`;
+                }
+
+                // Replace placeholders in body template
+                let body = bodyTemplate
+                    .replace(/{heading}/g, trimmed)
+                    .replace(/{index}/g, formattedIndex)
+                    .replace(/{date}/g, currentDate);
+
+                const fullContent = frontmatterStr + body + "\n";
+
+                generatedFilesData.push({
+                    fileName: fileName,
+                    heading: trimmed,
+                    content: fullContent
+                });
+
+                indexCounter++;
+            });
+
+            if (activeFileIndex >= generatedFilesData.length) {
+                activeFileIndex = 0;
+            }
+
+            renderPreview();
+
+            if (generatedFilesData.length > 0) {
+                document.getElementById('downloadZipBtn').removeAttribute('disabled');
+                document.getElementById('copyAllBtn').removeAttribute('disabled');
+            } else {
+                document.getElementById('downloadZipBtn').setAttribute('disabled', 'true');
+                document.getElementById('copyAllBtn').setAttribute('disabled', 'true');
+            }
+        }
+
+        function renderPreview() {
+            const emptyState = document.getElementById('emptyState');
+            const previewContentArea = document.getElementById('previewContentArea');
+            const fileTabsBar = document.getElementById('fileTabsBar');
+            const fileCounter = document.getElementById('file-counter');
+
+            if (generatedFilesData.length === 0) {
+                emptyState.classList.remove('hidden');
+                previewContentArea.classList.add('hidden');
+                fileCounter.textContent = "0 files generated";
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            previewContentArea.classList.remove('hidden');
+            fileCounter.textContent = `${generatedFilesData.length} file${generatedFilesData.length === 1 ? '' : 's'} ready`;
+
+            // Render Tabs
+            fileTabsBar.innerHTML = '';
+            generatedFilesData.forEach((item, idx) => {
+                const isActive = idx === activeFileIndex;
+                const tab = document.createElement('button');
+                tab.className = `px-3.5 py-2 rounded-xl text-xs font-mono transition flex items-center gap-2 whitespace-nowrap border ${isActive ? 'bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-600/20' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'}`;
+                tab.innerHTML = `<i class="fa-brands fa-markdown ${isActive ? 'text-white' : 'text-indigo-400'}"></i><span>${item.fileName}</span>`;
+                tab.onclick = () => {
+                    activeFileIndex = idx;
+                    renderPreview();
+                };
+                fileTabsBar.appendChild(tab);
+            });
+
+            // Render Active File Viewer
+            const activeFile = generatedFilesData[activeFileIndex];
+            if (activeFile) {
+                document.getElementById('activeFileName').textContent = activeFile.fileName;
+                document.getElementById('activeFileStats').textContent = `${activeFile.content.length} characters`;
+                document.getElementById('activeFileCodeView').textContent = activeFile.content;
+            }
+        }
+
+        function downloadActiveFile() {
+            const activeFile = generatedFilesData[activeFileIndex];
+            if (!activeFile) return;
+
+            const blob = new Blob([activeFile.content], { type: "text/markdown;charset=utf-8" });
+            saveAs(blob, activeFile.fileName);
+            showToast(`Downloaded ${activeFile.fileName}`, "success");
+        }
+
+        function copyActiveFileContent() {
+            const activeFile = generatedFilesData[activeFileIndex];
+            if (!activeFile) return;
+
+            const textarea = document.createElement('textarea');
+            textarea.value = activeFile.content;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast(`Copied content of ${activeFile.fileName}`, "success");
+            } catch (err) {
+                showToast("Failed to copy content", "error");
+            }
+            document.body.removeChild(textarea);
+        }
+
+        function copyAllContent() {
+            if (generatedFilesData.length === 0) return;
+
+            const combined = generatedFilesData.map(f => `// File: ${f.fileName}\n\n${f.content}\n\n==============================\n\n`).join('');
+            const textarea = document.createElement('textarea');
+            textarea.value = combined;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast("Copied all files content to clipboard!", "success");
+            } catch (err) {
+                showToast("Failed to copy all files", "error");
+            }
+            document.body.removeChild(textarea);
+        }
+
+        function downloadZip() {
+            if (generatedFilesData.length === 0) {
+                showToast("No files to package.", "error");
+                return;
+            }
+
+            const zip = new JSZip();
+            generatedFilesData.forEach(item => {
+                zip.file(item.fileName, item.content);
+            });
+
+            showToast("Packaging ZIP archive...", "success");
+
+            zip.generateAsync({ type: "blob" }).then(function(content) {
+                saveAs(content, "Markdown_Notes_Bundle.zip");
+                showToast("ZIP archive downloaded successfully!", "success");
+            }).catch(function(error) {
+                showToast("Error generating ZIP archive.", "error");
+                console.error(error);
+            });
+        }
+    </script>
+</body>
+</html>
