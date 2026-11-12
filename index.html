@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tool Hub</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0d1117;
+            color: #c9d1d9;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+        h1 {
+            font-size: 2.2rem;
+            color: #f0f6fc;
+            margin-bottom: 0.5rem;
+        }
+        p {
+            color: #8b949e;
+            font-size: 1rem;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 1rem;
+        }
+        .card {
+            background-color: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 1.25rem;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+        }
+        .card:hover {
+            border-color: #8b949e;
+            transform: translateY(-2px);
+            background-color: #1f242c;
+        }
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #58a6ff;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .card-desc {
+            font-size: 0.875rem;
+            color: #8b949e;
+            line-height: 1.4;
+        }
+        .card-footer {
+            margin-top: 1rem;
+            font-size: 0.75rem;
+            color: #6e7681;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Tool Hub</h1>
+        <p>Collection of web tools and utilities</p>
+    </header>
+
+    <div class="container">
+        <!-- Add new cards here for future webpages -->
+        
+        <a href="cards.html" class="card">
+            <div>
+                <div class="card-title">Cards</div>
+                <div class="card-desc">Interactive card generator and layout tool.</div>
+            </div>
+            <div class="card-footer">cards.html</div>
+        </a>
+
+        <a href="filegen.html" class="card">
+            <div>
+                <div class="card-title">File Generator</div>
+                <div class="card-desc">Generate and download files directly from the browser.</div>
+            </div>
+            <div class="card-footer">filegen.html</div>
+        </a>
+
+        <a href="markdown.html" class="card">
+            <div>
+                <div class="card-title">Markdown Tool</div>
+                <div class="card-desc">Markdown editor, previewer, and utility suite.</div>
+            </div>
+            <div class="card-footer">markdown.html</div>
+        </a>
+
+        <a href="md.html" class="card">
+            <div>
+                <div class="card-title">MD Parser</div>
+                <div class="card-desc">Lightweight markdown parser interface.</div>
+            </div>
+            <div class="card-footer">md.html</div>
+        </a>
+
+    </div>
+
+</body>
+</html>
